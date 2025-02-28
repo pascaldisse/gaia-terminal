@@ -1,10 +1,9 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Terminal as XTerm } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import styled from 'styled-components';
 import '@xterm/xterm/css/xterm.css';
-import { useTerminalStore } from '../../stores/terminalStore';
 
 const TerminalContainer = styled.div`
   width: 100%;
@@ -19,66 +18,172 @@ const Terminal = () => {
   const terminalRef = useRef(null);
   const xtermRef = useRef(null);
   const fitAddonRef = useRef(null);
-  const { 
-    input, 
-    setInput, 
-    commandHistory, 
-    addToCommandHistory,
-    currentPath,
-    setCurrentPath 
-  } = useTerminalStore();
+  
+  // Local state
+  const [currentPath, setCurrentPath] = useState('~');
+  const [commandHistory, setCommandHistory] = useState([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [currentInput, setCurrentInput] = useState('');
   
   useEffect(() => {
     // Initialize terminal
-    if (!xtermRef.current) {
-      // Terminal configuration
-      xtermRef.current = new XTerm({
-        fontFamily: 'JetBrains Mono, Menlo, monospace',
-        fontSize: 14,
-        lineHeight: 1.2,
-        cursorBlink: true,
-        theme: {
-          background: '#1e1e2e',
-          foreground: '#f8f8f2',
-          cursor: '#f8f8f2',
-          selection: 'rgba(248, 248, 242, 0.3)',
-          black: '#000000',
-          red: '#ff5555',
-          green: '#50fa7b',
-          yellow: '#f1fa8c',
-          blue: '#bd93f9',
-          magenta: '#ff79c6',
-          cyan: '#8be9fd',
-          white: '#bbbbbb',
-          brightBlack: '#555555',
-          brightRed: '#ff5555',
-          brightGreen: '#50fa7b',
-          brightYellow: '#f1fa8c',
-          brightBlue: '#bd93f9',
-          brightMagenta: '#ff79c6',
-          brightCyan: '#8be9fd',
-          brightWhite: '#ffffff'
+    const term = new XTerm({
+      fontFamily: 'JetBrains Mono, Menlo, monospace',
+      fontSize: 14,
+      lineHeight: 1.2,
+      cursorBlink: true,
+      convertEol: true,
+      theme: {
+        background: '#1e1e2e',
+        foreground: '#f8f8f2',
+        cursor: '#f8f8f2',
+        selection: 'rgba(248, 248, 242, 0.3)',
+        black: '#000000',
+        red: '#ff5555',
+        green: '#50fa7b',
+        yellow: '#f1fa8c',
+        blue: '#bd93f9',
+        magenta: '#ff79c6',
+        cyan: '#8be9fd',
+        white: '#bbbbbb',
+        brightBlack: '#555555',
+        brightRed: '#ff5555',
+        brightGreen: '#50fa7b',
+        brightYellow: '#f1fa8c',
+        brightBlue: '#bd93f9',
+        brightMagenta: '#ff79c6',
+        brightCyan: '#8be9fd',
+        brightWhite: '#ffffff'
+      }
+    });
+    
+    // Add fit addon
+    const fitAddon = new FitAddon();
+    term.loadAddon(fitAddon);
+    
+    // Add web links addon
+    const webLinksAddon = new WebLinksAddon();
+    term.loadAddon(webLinksAddon);
+    
+    // Store references
+    xtermRef.current = term;
+    fitAddonRef.current = fitAddon;
+    
+    // Open terminal in the container
+    term.open(terminalRef.current);
+    
+    // Fit terminal to container
+    setTimeout(() => {
+      fitAddon.fit();
+    }, 100);
+    
+    // Welcome message
+    term.writeln('Welcome to Gaia Terminal');
+    term.writeln('Type "help" to see available commands');
+    
+    // Initial prompt
+    displayPrompt();
+    
+    let currentLine = '';
+    let cursorPosition = 0;
+    
+    // Handle input
+    term.onData(data => {
+      const code = data.charCodeAt(0);
+      
+      if (data === '\r') { // Enter
+        term.write('\r\n');
+        
+        // Process command
+        processCommand(currentLine);
+        
+        // Reset current line and cursor position
+        currentLine = '';
+        cursorPosition = 0;
+      } 
+      else if (data === '\u007F') { // Backspace
+        if (currentLine.length > 0 && cursorPosition > 0) {
+          currentLine = 
+            currentLine.substring(0, cursorPosition - 1) + 
+            currentLine.substring(cursorPosition);
+          cursorPosition--;
+          
+          // Redraw line
+          term.write('\b \b');
         }
-      });
-
-      // Add fit addon
-      fitAddonRef.current = new FitAddon();
-      xtermRef.current.loadAddon(fitAddonRef.current);
-      
-      // Add web links addon
-      const webLinksAddon = new WebLinksAddon();
-      xtermRef.current.loadAddon(webLinksAddon);
-      
-      // Open terminal in the container
-      xtermRef.current.open(terminalRef.current);
-      fitAddonRef.current.fit();
-      
-      // Display initial prompt
-      displayPrompt();
-      
-      // Handle input
-      xtermRef.current.onData(handleTerminalInput);
-    }
+      }
+      else if (data === '\u001b[A') { // Up arrow
+        if (commandHistory.length > 0) {
+          const index = historyIndex === -1 ? 
+            commandHistory.length - 1 : 
+            Math.max(0, historyIndex - 1);
+          
+          // Clear current line
+          term.write('\r\x1b[K');
+          displayPromptString();
+          
+          // Display previous command
+          const prevCommand = commandHistory[index];
+          term.write(prevCommand);
+          
+          currentLine = prevCommand;
+          cursorPosition = prevCommand.length;
+          setHistoryIndex(index);
+        }
+      }
+      else if (data === '\u001b[B') { // Down arrow
+        if (commandHistory.length > 0 && historyIndex !== -1) {
+          const index = historyIndex < commandHistory.length - 1 ? 
+            historyIndex + 1 : -1;
+          
+          // Clear current line
+          term.write('\r\x1b[K');
+          displayPromptString();
+          
+          if (index === -1) {
+            // Clear command
+            currentLine = '';
+            cursorPosition = 0;
+          } else {
+            // Display next command
+            const nextCommand = commandHistory[index];
+            term.write(nextCommand);
+            
+            currentLine = nextCommand;
+            cursorPosition = nextCommand.length;
+          }
+          
+          setHistoryIndex(index);
+        }
+      }
+      else if (data === '\u001b[C') { // Right arrow
+        if (cursorPosition < currentLine.length) {
+          term.write(data);
+          cursorPosition++;
+        }
+      }
+      else if (data === '\u001b[D') { // Left arrow
+        if (cursorPosition > 0) {
+          term.write(data);
+          cursorPosition--;
+        }
+      }
+      else if (code < 32 || code === 127) {
+        // Control characters - ignore most of them
+      }
+      else {
+        // Regular input
+        term.write(data);
+        
+        // Insert character at cursor position
+        currentLine = 
+          currentLine.substring(0, cursorPosition) + 
+          data + 
+          currentLine.substring(cursorPosition);
+        
+        cursorPosition++;
+      }
+    });
     
     // Handle window resize
     const handleResize = () => {
@@ -91,13 +196,17 @@ const Terminal = () => {
     
     return () => {
       window.removeEventListener('resize', handleResize);
-      if (xtermRef.current) {
-        xtermRef.current.dispose();
-      }
+      term.dispose();
     };
   }, []);
   
+  // Helper function to display prompt
   const displayPrompt = () => {
+    if (!xtermRef.current) return;
+    displayPromptString();
+  };
+  
+  const displayPromptString = () => {
     if (!xtermRef.current) return;
     
     const username = 'user';
@@ -108,82 +217,19 @@ const Terminal = () => {
     xtermRef.current.write(promptLine);
   };
   
-  const handleTerminalInput = (data) => {
-    // Handle special keys
-    if (data === '\r') { // Enter key
-      // Process command
-      processCommand(input);
-      // Reset input
-      setInput('');
-    } else if (data === '\u007F') { // Backspace
-      if (input.length > 0) {
-        // Remove last character from input
-        xtermRef.current.write('\b \b');
-        setInput(input.slice(0, -1));
-      }
-    } else if (data === '\t') { // Tab
-      // Handle autocomplete here
-      xtermRef.current.write(data);
-    } else if (data === '\u001b[A') { // Up arrow
-      // Navigate command history (previous command)
-      const { commandHistory, historyIndex } = useTerminalStore.getState();
-      if (commandHistory.length > 0) {
-        const newIndex = Math.max(0, historyIndex > 0 ? historyIndex - 1 : commandHistory.length - 1);
-        const prevCommand = commandHistory[newIndex];
-        
-        // Clear current input
-        for (let i = 0; i < input.length; i++) {
-          xtermRef.current.write('\b \b');
-        }
-        
-        // Write previous command
-        xtermRef.current.write(prevCommand);
-        setInput(prevCommand);
-        useTerminalStore.setState({ historyIndex: newIndex });
-      }
-    } else if (data === '\u001b[B') { // Down arrow
-      // Navigate command history (next command)
-      const { commandHistory, historyIndex } = useTerminalStore.getState();
-      if (commandHistory.length > 0) {
-        const newIndex = historyIndex < commandHistory.length - 1 ? historyIndex + 1 : -1;
-        const nextCommand = newIndex >= 0 ? commandHistory[newIndex] : '';
-        
-        // Clear current input
-        for (let i = 0; i < input.length; i++) {
-          xtermRef.current.write('\b \b');
-        }
-        
-        // Write next command
-        xtermRef.current.write(nextCommand);
-        setInput(nextCommand);
-        useTerminalStore.setState({ historyIndex: newIndex });
-      }
-    } else if (data === '\u001b[C' || data === '\u001b[D') {
-      // Right/Left arrow keys - ignore for now
-    } else if (data.charCodeAt(0) === 27) {
-      // Other escape sequences - ignore
-      console.log('Escape sequence:', data);
-    } else if (data >= ' ' && data <= '~') { // Printable ASCII characters
-      // Regular character input
-      xtermRef.current.write(data);
-      setInput(input + data);
-    } else {
-      // For debugging - log other keypress codes
-      console.log('Key code:', data.charCodeAt(0), data);
-    }
-  };
-  
+  // Process commands
   const processCommand = (cmd) => {
+    if (!xtermRef.current) return;
     if (!cmd.trim()) {
       displayPrompt();
       return;
     }
     
     // Add command to history
-    addToCommandHistory(cmd);
-    
-    // Write the command and newline
-    xtermRef.current.writeln('');
+    if (commandHistory.length === 0 || commandHistory[commandHistory.length - 1] !== cmd) {
+      setCommandHistory(prev => [...prev, cmd]);
+    }
+    setHistoryIndex(-1);
     
     // Split command and arguments
     const parts = cmd.trim().split(/\s+/);
@@ -283,6 +329,8 @@ const Terminal = () => {
   };
   
   const connectSSH = (sshCommand) => {
+    if (!xtermRef.current) return;
+    
     // Parse SSH command
     // Example format: username@hostname -p port
     let username = 'user';
@@ -311,9 +359,11 @@ const Terminal = () => {
     // In a real app, we would initiate an actual SSH connection here
     // For this demo, we'll just simulate a connection
     setTimeout(() => {
-      xtermRef.current.writeln('\x1b[32mConnected to remote server.\x1b[0m');
-      xtermRef.current.writeln('Welcome to Gaia Terminal SSH');
-      xtermRef.current.writeln('Type "exit" to disconnect');
+      if (xtermRef.current) {
+        xtermRef.current.writeln('\x1b[32mConnected to remote server.\x1b[0m');
+        xtermRef.current.writeln('Welcome to Gaia Terminal SSH');
+        xtermRef.current.writeln('Type "exit" to disconnect');
+      }
     }, 1000);
   };
 
