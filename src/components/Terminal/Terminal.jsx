@@ -87,21 +87,22 @@ const Terminal = () => {
     let currentLine = '';
     let cursorPosition = 0;
     
-    // Handle input
-    term.onData(data => {
+    // Create a variable to store the data handler function
+    const handleTerminalData = (data) => {
       // If SSH is active, send all input to the SSH server
       if (isSSHActive && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({
           type: 'data',
-          data: data
+          data: data.data || data
         }));
         return;
       }
       
       // Process local terminal input
-      const code = data.charCodeAt(0);
+      const inputData = data.data || data;
+      const code = inputData.charCodeAt(0);
       
-      if (data === '\r') { // Enter
+      if (inputData === '\r') { // Enter
         term.write('\r\n');
         
         // Process command
@@ -111,7 +112,7 @@ const Terminal = () => {
         currentLine = '';
         cursorPosition = 0;
       } 
-      else if (data === '\u007F') { // Backspace
+      else if (inputData === '\u007F') { // Backspace
         if (currentLine.length > 0 && cursorPosition > 0) {
           currentLine = 
             currentLine.substring(0, cursorPosition - 1) + 
@@ -122,7 +123,7 @@ const Terminal = () => {
           term.write('\b \b');
         }
       }
-      else if (data === '\u001b[A') { // Up arrow
+      else if (inputData === '\u001b[A') { // Up arrow
         if (commandHistory.length > 0) {
           const index = historyIndex === -1 ? 
             commandHistory.length - 1 : 
@@ -141,7 +142,7 @@ const Terminal = () => {
           setHistoryIndex(index);
         }
       }
-      else if (data === '\u001b[B') { // Down arrow
+      else if (inputData === '\u001b[B') { // Down arrow
         if (commandHistory.length > 0 && historyIndex !== -1) {
           const index = historyIndex < commandHistory.length - 1 ? 
             historyIndex + 1 : -1;
@@ -166,15 +167,15 @@ const Terminal = () => {
           setHistoryIndex(index);
         }
       }
-      else if (data === '\u001b[C') { // Right arrow
+      else if (inputData === '\u001b[C') { // Right arrow
         if (cursorPosition < currentLine.length) {
-          term.write(data);
+          term.write(inputData);
           cursorPosition++;
         }
       }
-      else if (data === '\u001b[D') { // Left arrow
+      else if (inputData === '\u001b[D') { // Left arrow
         if (cursorPosition > 0) {
-          term.write(data);
+          term.write(inputData);
           cursorPosition--;
         }
       }
@@ -183,17 +184,20 @@ const Terminal = () => {
       }
       else {
         // Regular input
-        term.write(data);
+        term.write(inputData);
         
         // Insert character at cursor position
         currentLine = 
           currentLine.substring(0, cursorPosition) + 
-          data + 
+          inputData + 
           currentLine.substring(cursorPosition);
         
         cursorPosition++;
       }
-    });
+    };
+    
+    // Register the data handler using the event approach
+    term.onData(handleTerminalData);
     
     // Handle window resize
     const handleResize = () => {
@@ -518,12 +522,17 @@ const Terminal = () => {
     
     // Hide input for password entry
     let password = '';
-    const originalOnData = xtermRef.current.onData;
     
-    const passwordInputHandler = (data) => {
+    // Create a password input handler that uses the terminal's current data event
+    const passwordHandler = (e) => {
+      const data = e.data || e;
+      
       if (data === '\r') {  // Enter
         xtermRef.current.writeln('');
-        xtermRef.current.onData = originalOnData;  // Restore original handler
+        
+        // Remove this event listener after password is entered
+        // This is safer than trying to replace onData directly
+        xtermRef.current.off('data', passwordHandler);
         
         // Send SSH connection request over WebSocket
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -554,8 +563,8 @@ const Terminal = () => {
       }
     };
     
-    // Set the password input handler
-    xtermRef.current.onData = passwordInputHandler;
+    // Use the event listener approach instead of trying to replace onData
+    xtermRef.current.on('data', passwordHandler);
   };
 
   return (
