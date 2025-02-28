@@ -590,7 +590,7 @@ const Terminal = () => {
     
     // In xterm.js 5.x, we need to use onData method with a callback
     // Store the original handler
-    const originalHandler = term.onData;
+    const originalHandler = xtermRef.current.onData;
     
     // Create a timeout ID variable for later use
     let timeoutId;
