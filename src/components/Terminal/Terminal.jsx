@@ -305,6 +305,10 @@ const Terminal = () => {
           }));
         }
         setIsSSHActive(false);
+        // Re-enable terminal input if it was disabled
+        if (xtermRef.current.options.disableStdin) {
+          xtermRef.current.options.disableStdin = false;
+        }
         xtermRef.current.writeln('\x1b[33mDisconnected from SSH server\x1b[0m');
         displayPrompt();
         return;
@@ -501,6 +505,10 @@ const Terminal = () => {
             if (xtermRef.current) {
               xtermRef.current.writeln(`\x1b[33m${message.message}\x1b[0m`);
               setIsSSHActive(false);
+              // Re-enable terminal input if it was disabled
+              if (xtermRef.current.options.disableStdin) {
+                xtermRef.current.options.disableStdin = false;
+              }
               displayPrompt();
             }
             break;
@@ -509,6 +517,10 @@ const Terminal = () => {
             if (xtermRef.current) {
               xtermRef.current.writeln(`\x1b[31mError: ${message.message}\x1b[0m`);
               setIsSSHActive(false);
+              // Re-enable terminal input if it was disabled
+              if (xtermRef.current.options.disableStdin) {
+                xtermRef.current.options.disableStdin = false;
+              }
               displayPrompt();
             }
             break;
@@ -532,6 +544,10 @@ const Terminal = () => {
       if (xtermRef.current && isSSHActive) {
         xtermRef.current.writeln('\x1b[33mConnection to SSH server closed\x1b[0m');
         setIsSSHActive(false);
+        // Re-enable terminal input if it was disabled
+        if (xtermRef.current.options.disableStdin) {
+          xtermRef.current.options.disableStdin = false;
+        }
         displayPrompt();
       }
     };
@@ -606,29 +622,24 @@ const Terminal = () => {
     // Hide input for password entry
     let password = '';
     
-    // In xterm.js 5.x, we need to use onData method with a callback
-    // Store the original handler
-    const originalHandler = xtermRef.current.onData;
-    
+    // In xterm.js, we'll use a disposable listener to handle password input
     // Create a timeout ID variable for later use
     let timeoutId;
     
     // Create a password input handler function
-    const handlePasswordInput = (e) => {
+    const handlePasswordInput = (data) => {
       // Clear timeout if it exists
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
       
-      const data = e.data || e;
+      const inputData = typeof data === 'object' ? data.data : data;
       
-      if (data === '\r') {  // Enter
+      if (inputData === '\r') {  // Enter
         xtermRef.current.writeln('');
         
-        // Restore original handler after password is entered
-        if (xtermRef.current) {
-          xtermRef.current.onData(originalHandler);
-        }
+        // Remove the custom password handler
+        xtermRef.current.options.disableStdin = false;
         
         // Send SSH connection request over WebSocket
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -643,34 +654,36 @@ const Terminal = () => {
           xtermRef.current.writeln('\x1b[31mWebSocket connection is not available\x1b[0m');
           displayPrompt();
         }
-      } else if (data === '\u007F') {  // Backspace
+      } else if (inputData === '\u007F') {  // Backspace
         if (password.length > 0) {
           // Delete the asterisk character from terminal
           xtermRef.current.write('\b \b');
           // Remove the last character from the password
           password = password.slice(0, -1);
         }
-      } else if (data.charCodeAt(0) < 32 || data.charCodeAt(0) === 127) {
+      } else if (inputData.charCodeAt(0) < 32 || inputData.charCodeAt(0) === 127) {
         // Control characters - ignore
       } else {
         // Add to password but display asterisk instead
         xtermRef.current.write('*');
-        password += data;
+        password += inputData;
       }
-    };
-    
-    // Set our password handler
-    xtermRef.current.onData(handlePasswordInput);
-    
-    // Create a timeout to reset the handler if user doesn't enter password
-    timeoutId = setTimeout(() => {
-      // Restore the original handler after 1 minute (timeout)
-      if (xtermRef.current) {
-        xtermRef.current.onData(originalHandler);
+      
+      // Reset the timeout
+      timeoutId = setTimeout(() => {
+        xtermRef.current.options.disableStdin = false;
         xtermRef.current.writeln('\r\n\x1b[31mPassword entry timed out\x1b[0m');
         displayPrompt();
-      }
-    }, 60000); // 1 minute timeout
+      }, 60000); // 1 minute timeout
+    };
+    
+    // Temporarily disable normal terminal input
+    xtermRef.current.options.disableStdin = true;
+    
+    // Register one-time data handler
+    const disposable = xtermRef.current.onData(handlePasswordInput);
+    
+    // This will be cleaned up after entering password or timeout
   };
 
   return (
