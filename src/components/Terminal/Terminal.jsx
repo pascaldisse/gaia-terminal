@@ -112,6 +112,7 @@ const Terminal = () => {
     const handleTerminalData = (data) => {
       // Skip normal handling if collecting password
       if (collectingPassword) {
+        // This is very important - don't even add to currentLine when collecting password
         return;
       }
       
@@ -127,6 +128,29 @@ const Terminal = () => {
       // Process local terminal input
       const inputData = data.data || data;
       const code = inputData.charCodeAt(0);
+      
+      // If the current line contains "Password:", it's likely a leaked password prompt
+      // We should ignore this entire line
+      if (currentLine.includes("Password:")) {
+        if (inputData === '\r') { // Enter
+          term.write('\r\n');
+          
+          // Skip processing this line since it's likely a password
+          console.log("Skipping password line processing");
+          
+          // Reset current line, cursor position, and history index
+          currentLine = '';
+          cursorPosition = 0;
+          localHistoryIndex = -1;
+          
+          // Show prompt again
+          displayPrompt();
+          return;
+        }
+        // Keep collecting but don't echo back for security
+        currentLine += inputData;
+        return;
+      }
       
       if (inputData === '\r') { // Enter
         term.write('\r\n');
@@ -300,6 +324,13 @@ const Terminal = () => {
       return;
     }
     
+    // If we're still collecting a password but somehow a command got through,
+    // ignore it and don't display it - this prevents accidental password exposure
+    if (collectingPassword || cmd.includes('Password:')) {
+      console.log('Blocked command processing during password entry');
+      return;
+    }
+    
     // Special handling for SSH mode
     if (isSSHActive) {
       if (cmd === 'exit' || cmd === 'logout') {
@@ -317,11 +348,6 @@ const Terminal = () => {
       }
       
       // All other commands should have been sent directly via the onData handler
-      return;
-    }
-    
-    // Don't process commands if we're collecting a password
-    if (collectingPassword) {
       return;
     }
     
@@ -505,6 +531,12 @@ const Terminal = () => {
           passwordTimeoutRef.current = null;
         }
         
+        // Store the actual password for connecting
+        const enteredPassword = passwordRef.current;
+        
+        // Important: Reset the password immediately 
+        passwordRef.current = '';
+        
         // Send SSH connection request over WebSocket
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && sshConnectionParams) {
           wsRef.current.send(JSON.stringify({
@@ -512,7 +544,7 @@ const Terminal = () => {
             host: sshConnectionParams.hostname,
             port: sshConnectionParams.port,
             username: sshConnectionParams.username,
-            password: passwordRef.current
+            password: enteredPassword
           }));
         } else {
           xtermRef.current.writeln('\x1b[31mWebSocket connection is not available\x1b[0m');
