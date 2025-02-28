@@ -19,9 +19,26 @@ const Terminal = () => {
   const xtermRef = useRef(null);
   const fitAddonRef = useRef(null);
   
+  // Load command history from localStorage
+  const loadCommandHistory = () => {
+    try {
+      const savedHistory = localStorage.getItem('terminalCommandHistory');
+      return savedHistory ? JSON.parse(savedHistory) : [];
+    } catch (error) {
+      console.error('Error loading command history:', error);
+      return [];
+    }
+  };
+  
   // Local state
-  const [currentPath, setCurrentPath] = useState('~');
-  const [commandHistory, setCommandHistory] = useState([]);
+  const [currentPath, setCurrentPath] = useState(() => {
+    try {
+      return localStorage.getItem('terminalCurrentPath') || '~';
+    } catch (error) {
+      return '~';
+    }
+  });
+  const [commandHistory, setCommandHistory] = useState(loadCommandHistory);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [currentInput, setCurrentInput] = useState('');
   
@@ -281,7 +298,17 @@ const Terminal = () => {
     
     // Add command to history
     if (commandHistory.length === 0 || commandHistory[commandHistory.length - 1] !== cmd) {
-      setCommandHistory(prev => [...prev, cmd]);
+      const newHistory = [...commandHistory, cmd];
+      // Limit history to 100 items to prevent localStorage from growing too large
+      const limitedHistory = newHistory.slice(-100);
+      setCommandHistory(limitedHistory);
+      
+      // Save to localStorage
+      try {
+        localStorage.setItem('terminalCommandHistory', JSON.stringify(limitedHistory));
+      } catch (error) {
+        console.error('Error saving command history:', error);
+      }
     }
     setHistoryIndex(-1);
     
@@ -299,21 +326,34 @@ const Terminal = () => {
       case 'cd':
         // Change directory (simulated)
         const newPath = args.join(' ') || '~';
+        let updatedPath;
+        
         if (newPath === '~') {
-          setCurrentPath('~');
+          updatedPath = '~';
         } else if (newPath === '..') {
           if (currentPath !== '~') {
             const pathParts = currentPath.split('/');
             pathParts.pop();
-            setCurrentPath(pathParts.join('/') || '~');
+            updatedPath = pathParts.join('/') || '~';
+          } else {
+            updatedPath = '~';
           }
         } else if (newPath.startsWith('/')) {
-          setCurrentPath(newPath);
+          updatedPath = newPath;
         } else {
-          const updatedPath = currentPath === '~' 
+          updatedPath = currentPath === '~' 
             ? `~/${newPath}` 
             : `${currentPath}/${newPath}`;
-          setCurrentPath(updatedPath);
+        }
+        
+        // Update the current path
+        setCurrentPath(updatedPath);
+        
+        // Save to localStorage
+        try {
+          localStorage.setItem('terminalCurrentPath', updatedPath);
+        } catch (error) {
+          console.error('Error saving current path:', error);
         }
         break;
         
@@ -358,6 +398,29 @@ const Terminal = () => {
         connectSSH(args.join(' '));
         return; // Don't display prompt here
         
+      case 'history':
+        if (args.length > 0 && args[0] === '-c') {
+          // Clear history
+          setCommandHistory([]);
+          try {
+            localStorage.removeItem('terminalCommandHistory');
+            xtermRef.current.writeln('\x1b[32mCommand history cleared\x1b[0m');
+          } catch (error) {
+            console.error('Error clearing command history:', error);
+            xtermRef.current.writeln('\x1b[31mError clearing command history\x1b[0m');
+          }
+        } else {
+          // Display command history with numbers
+          xtermRef.current.writeln('\x1b[1;33mCommand history:\x1b[0m');
+          commandHistory.forEach((cmd, index) => {
+            xtermRef.current.writeln(`  \x1b[2;37m${index + 1}\x1b[0m  ${cmd}`);
+          });
+          if (commandHistory.length === 0) {
+            xtermRef.current.writeln('  No commands in history');
+          }
+        }
+        break;
+        
       case 'help':
         // Display available commands
         xtermRef.current.writeln('\x1b[1;33mAvailable commands:\x1b[0m');
@@ -368,6 +431,8 @@ const Terminal = () => {
         xtermRef.current.writeln('  \x1b[1;32mecho [text]\x1b[0m   - Display text');
         xtermRef.current.writeln('  \x1b[1;32mdate\x1b[0m          - Display current date and time');
         xtermRef.current.writeln('  \x1b[1;32mwhoami\x1b[0m        - Display current user');
+        xtermRef.current.writeln('  \x1b[1;32mhistory\x1b[0m       - Display command history');
+        xtermRef.current.writeln('  \x1b[1;32mhistory -c\x1b[0m    - Clear command history');
         xtermRef.current.writeln('  \x1b[1;32mssh [args]\x1b[0m    - Connect to remote server via SSH');
         xtermRef.current.writeln('  \x1b[1;32mhelp\x1b[0m          - Display this help message');
         break;
