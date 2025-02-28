@@ -110,6 +110,11 @@ const Terminal = () => {
     
     // Create a variable to store the data handler function
     const handleTerminalData = (data) => {
+      // Skip normal handling if collecting password
+      if (collectingPassword) {
+        return;
+      }
+      
       // If SSH is active, send all input to the SSH server
       if (isSSHActive && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({
@@ -305,16 +310,18 @@ const Terminal = () => {
           }));
         }
         setIsSSHActive(false);
-        // Re-enable terminal input if it was disabled
-        if (xtermRef.current.options.disableStdin) {
-          xtermRef.current.options.disableStdin = false;
-        }
+        setCollectingPassword(false);
         xtermRef.current.writeln('\x1b[33mDisconnected from SSH server\x1b[0m');
         displayPrompt();
         return;
       }
       
       // All other commands should have been sent directly via the onData handler
+      return;
+    }
+    
+    // Don't process commands if we're collecting a password
+    if (collectingPassword) {
       return;
     }
     
@@ -472,6 +479,83 @@ const Terminal = () => {
   // WebSocket connection for SSH
   const wsRef = useRef(null);
   const [isSSHActive, setIsSSHActive] = useState(false);
+  const [collectingPassword, setCollectingPassword] = useState(false);
+  const [sshConnectionParams, setSshConnectionParams] = useState(null);
+  const passwordRef = useRef('');
+  const passwordTimeoutRef = useRef(null);
+  
+  // Set up effect for handling password collection
+  useEffect(() => {
+    if (!collectingPassword || !xtermRef.current) return;
+    
+    // Function to handle password input
+    const handlePasswordKeyPress = (event) => {
+      const data = event.data || event;
+      
+      if (data === '\r') { // Enter key
+        // Submit password
+        xtermRef.current.writeln('');
+        
+        // End password collection
+        setCollectingPassword(false);
+        
+        // Clear timeout
+        if (passwordTimeoutRef.current) {
+          clearTimeout(passwordTimeoutRef.current);
+          passwordTimeoutRef.current = null;
+        }
+        
+        // Send SSH connection request over WebSocket
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && sshConnectionParams) {
+          wsRef.current.send(JSON.stringify({
+            type: 'connect',
+            host: sshConnectionParams.hostname,
+            port: sshConnectionParams.port,
+            username: sshConnectionParams.username,
+            password: passwordRef.current
+          }));
+        } else {
+          xtermRef.current.writeln('\x1b[31mWebSocket connection is not available\x1b[0m');
+          displayPrompt();
+        }
+      } else if (data === '\u007F') { // Backspace
+        if (passwordRef.current.length > 0) {
+          // Delete the asterisk character from terminal
+          xtermRef.current.write('\b \b');
+          // Remove the last character from the password
+          passwordRef.current = passwordRef.current.slice(0, -1);
+        }
+      } else if (data.length === 1 && data.charCodeAt(0) >= 32 && data.charCodeAt(0) !== 127) {
+        // Regular character
+        xtermRef.current.write('*');
+        passwordRef.current += data;
+      }
+    };
+    
+    // Set up password collection timeout
+    passwordTimeoutRef.current = setTimeout(() => {
+      setCollectingPassword(false);
+      if (xtermRef.current) {
+        xtermRef.current.writeln('\r\n\x1b[31mPassword entry timed out\x1b[0m');
+        displayPrompt();
+      }
+    }, 60000); // 1 minute timeout
+    
+    // Attach event listener
+    const listener = xtermRef.current.onData(handlePasswordKeyPress);
+    
+    // Cleanup
+    return () => {
+      if (passwordTimeoutRef.current) {
+        clearTimeout(passwordTimeoutRef.current);
+        passwordTimeoutRef.current = null;
+      }
+      
+      if (listener && typeof listener.dispose === 'function') {
+        listener.dispose();
+      }
+    };
+  }, [collectingPassword, sshConnectionParams]);
   
   // Create WebSocket connection
   const createWSConnection = () => {
@@ -505,10 +589,8 @@ const Terminal = () => {
             if (xtermRef.current) {
               xtermRef.current.writeln(`\x1b[33m${message.message}\x1b[0m`);
               setIsSSHActive(false);
-              // Re-enable terminal input if it was disabled
-              if (xtermRef.current.options.disableStdin) {
-                xtermRef.current.options.disableStdin = false;
-              }
+              // Make sure we're not collecting password anymore
+              setCollectingPassword(false);
               displayPrompt();
             }
             break;
@@ -517,10 +599,8 @@ const Terminal = () => {
             if (xtermRef.current) {
               xtermRef.current.writeln(`\x1b[31mError: ${message.message}\x1b[0m`);
               setIsSSHActive(false);
-              // Re-enable terminal input if it was disabled
-              if (xtermRef.current.options.disableStdin) {
-                xtermRef.current.options.disableStdin = false;
-              }
+              // Make sure we're not collecting password anymore
+              setCollectingPassword(false);
               displayPrompt();
             }
             break;
@@ -544,10 +624,7 @@ const Terminal = () => {
       if (xtermRef.current && isSSHActive) {
         xtermRef.current.writeln('\x1b[33mConnection to SSH server closed\x1b[0m');
         setIsSSHActive(false);
-        // Re-enable terminal input if it was disabled
-        if (xtermRef.current.options.disableStdin) {
-          xtermRef.current.options.disableStdin = false;
-        }
+        setCollectingPassword(false);
         displayPrompt();
       }
     };
@@ -580,7 +657,6 @@ const Terminal = () => {
     let username = 'user';
     let hostname = 'localhost';
     let port = 22;
-    let withPassword = false;
     
     const hostParts = sshCommand.split('@');
     if (hostParts.length > 1) {
@@ -619,71 +695,14 @@ const Terminal = () => {
     // Prompt for password
     xtermRef.current.write('\x1b[33mPassword: \x1b[0m');
     
-    // Hide input for password entry
-    let password = '';
+    // Clear any existing password
+    passwordRef.current = '';
     
-    // In xterm.js, we'll use a disposable listener to handle password input
-    // Create a timeout ID variable for later use
-    let timeoutId;
+    // Save SSH connection parameters for the password handler
+    setSshConnectionParams({ username, hostname, port });
     
-    // Create a password input handler function
-    const handlePasswordInput = (data) => {
-      // Clear timeout if it exists
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-      
-      const inputData = typeof data === 'object' ? data.data : data;
-      
-      if (inputData === '\r') {  // Enter
-        xtermRef.current.writeln('');
-        
-        // Remove the custom password handler
-        xtermRef.current.options.disableStdin = false;
-        
-        // Send SSH connection request over WebSocket
-        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-          wsRef.current.send(JSON.stringify({
-            type: 'connect',
-            host: hostname,
-            port: port,
-            username: username,
-            password: password
-          }));
-        } else {
-          xtermRef.current.writeln('\x1b[31mWebSocket connection is not available\x1b[0m');
-          displayPrompt();
-        }
-      } else if (inputData === '\u007F') {  // Backspace
-        if (password.length > 0) {
-          // Delete the asterisk character from terminal
-          xtermRef.current.write('\b \b');
-          // Remove the last character from the password
-          password = password.slice(0, -1);
-        }
-      } else if (inputData.charCodeAt(0) < 32 || inputData.charCodeAt(0) === 127) {
-        // Control characters - ignore
-      } else {
-        // Add to password but display asterisk instead
-        xtermRef.current.write('*');
-        password += inputData;
-      }
-      
-      // Reset the timeout
-      timeoutId = setTimeout(() => {
-        xtermRef.current.options.disableStdin = false;
-        xtermRef.current.writeln('\r\n\x1b[31mPassword entry timed out\x1b[0m');
-        displayPrompt();
-      }, 60000); // 1 minute timeout
-    };
-    
-    // Temporarily disable normal terminal input
-    xtermRef.current.options.disableStdin = true;
-    
-    // Register one-time data handler
-    const disposable = xtermRef.current.onData(handlePasswordInput);
-    
-    // This will be cleaned up after entering password or timeout
+    // Enable password collection mode
+    setCollectingPassword(true);
   };
 
   return (
