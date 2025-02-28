@@ -573,7 +573,13 @@ const Terminal = () => {
       }
     }, 60000); // 1 minute timeout
     
-    // Attach event listener
+    // Replace the terminal's data handler completely during password collection
+    const originalOnDataHandler = xtermRef.current._core._coreService._onData.handlers;
+    
+    // Clear all existing handlers
+    xtermRef.current._core._coreService._onData.clear();
+    
+    // Add our password handler as the only handler
     const listener = xtermRef.current.onData(handlePasswordKeyPress);
     
     // Cleanup
@@ -583,8 +589,16 @@ const Terminal = () => {
         passwordTimeoutRef.current = null;
       }
       
-      if (listener && typeof listener.dispose === 'function') {
-        listener.dispose();
+      // Clear all handlers
+      xtermRef.current._core._coreService._onData.clear();
+      
+      // If we still have the original handlers, restore them
+      if (originalOnDataHandler) {
+        // Restore the original handlers
+        xtermRef.current._core._coreService._onData.handlers = originalOnDataHandler;
+      } else {
+        // Set up a fresh handler for terminal data
+        xtermRef.current.onData(handleTerminalData);
       }
     };
   }, [collectingPassword, sshConnectionParams]);
