@@ -130,16 +130,18 @@ const Terminal = () => {
       const inputData = data.data || data;
       const code = inputData.charCodeAt(0);
       
-      // As an extra safety measure, check if the line appears to be password-related
-      if (currentLine.includes("Password:") || currentLine.includes("password") || 
-          currentLine.includes("passwd") || currentLine.includes("ssh ")) {
+      // Safety measure for password-related lines
+      if (collectingPassword || 
+          currentLine.includes("Password:") || 
+          currentLine.includes("password") || 
+          currentLine.includes("passwd")) {
         
-        // If the line appears to contain a password prompt, handle with extra care
-        if (inputData === '\r') { // Enter
+        // If it's a password-related line
+        if (inputData === '\r') { // Enter key
           term.write('\r\n');
           
           // Skip processing this line for safety
-          console.log("Skipping potential password-related line");
+          console.log("Skipping password-related input");
           
           // Reset current line, cursor position, and history index
           currentLine = '';
@@ -151,11 +153,14 @@ const Terminal = () => {
           return;
         }
         
-        // For password-like lines, don't display input after command
-        if (!currentLine.endsWith(" ")) {
-          // Don't echo characters after ssh command arguments
-          return;
-        }
+        // Don't echo characters for password security
+        return;
+      }
+      
+      // Special handling for ssh command - prepare for password mode
+      if (currentLine.startsWith("ssh ") && inputData === '\r') {
+        // Let the normal processing happen for the ssh command itself
+        // Our connectSSH function will handle setting up the password mode
       }
       
       if (inputData === '\r') { // Enter
@@ -579,7 +584,7 @@ const Terminal = () => {
       }
     }, 60000); // 1 minute timeout
     
-    // Set a state variable that the main handler will check
+    // Handle password input securely
     const handlePasswordInput = (data) => {
       // If we're not collecting password anymore, ignore this
       if (!collectingPassword) return;
@@ -587,7 +592,7 @@ const Terminal = () => {
       const inputData = typeof data === 'string' ? data : data.data;
       
       if (inputData === '\r') { // Enter key
-        // Submit password
+        // Submit password by moving to next line
         xtermRef.current.writeln('');
         
         // End password collection
@@ -622,15 +627,14 @@ const Terminal = () => {
         return;
       } else if (inputData === '\u007F') { // Backspace
         if (passwordRef.current.length > 0) {
-          // Delete the asterisk character from terminal
-          xtermRef.current.write('\b \b');
-          // Remove the last character from the password
+          // For a true hidden password field, don't show anything when backspacing
+          // Just update our stored password
           passwordRef.current = passwordRef.current.slice(0, -1);
         }
         return;
       } else if (inputData.length === 1 && inputData.charCodeAt(0) >= 32 && inputData.charCodeAt(0) !== 127) {
-        // Regular character
-        xtermRef.current.write('*');
+        // Regular character - don't show any output for truly hidden password
+        // Just store the character in our password
         passwordRef.current += inputData;
         return;
       }
@@ -788,17 +792,20 @@ const Terminal = () => {
     // Output connection message
     xtermRef.current.writeln(`\x1b[34mConnecting to ${username}@${hostname}:${port}...\x1b[0m`);
     
-    // Prompt for password
-    xtermRef.current.write('\x1b[33mPassword: \x1b[0m');
-    
-    // Clear any existing password
-    passwordRef.current = '';
-    
-    // Save SSH connection parameters for the password handler
-    setSshConnectionParams({ username, hostname, port });
-    
-    // Enable password collection mode
-    setCollectingPassword(true);
+    // Wait a brief moment before showing password prompt to ensure it's on a new line
+    setTimeout(() => {
+      // Prompt for password
+      xtermRef.current.write('\x1b[33mPassword: \x1b[0m');
+      
+      // Clear any existing password
+      passwordRef.current = '';
+      
+      // Save SSH connection parameters for the password handler
+      setSshConnectionParams({ username, hostname, port });
+      
+      // Enable password collection mode
+      setCollectingPassword(true);
+    }, 50);
   };
 
   return (
