@@ -110,9 +110,10 @@ const Terminal = () => {
     
     // Create a variable to store the data handler function
     const handleTerminalData = (data) => {
-      // Skip normal handling if collecting password
+      // Completely skip any processing if we're collecting a password
+      // This prevents password data from being handled as commands
       if (collectingPassword) {
-        // This is very important - don't even add to currentLine when collecting password
+        // IMPORTANT: Block ALL input processing during password collection
         return;
       }
       
@@ -129,14 +130,16 @@ const Terminal = () => {
       const inputData = data.data || data;
       const code = inputData.charCodeAt(0);
       
-      // If the current line contains "Password:", it's likely a leaked password prompt
-      // We should ignore this entire line
-      if (currentLine.includes("Password:")) {
+      // As an extra safety measure, check if the line appears to be password-related
+      if (currentLine.includes("Password:") || currentLine.includes("password") || 
+          currentLine.includes("passwd") || currentLine.includes("ssh ")) {
+        
+        // If the line appears to contain a password prompt, handle with extra care
         if (inputData === '\r') { // Enter
           term.write('\r\n');
           
-          // Skip processing this line since it's likely a password
-          console.log("Skipping password line processing");
+          // Skip processing this line for safety
+          console.log("Skipping potential password-related line");
           
           // Reset current line, cursor position, and history index
           currentLine = '';
@@ -147,9 +150,12 @@ const Terminal = () => {
           displayPrompt();
           return;
         }
-        // Keep collecting but don't echo back for security
-        currentLine += inputData;
-        return;
+        
+        // For password-like lines, don't display input after command
+        if (!currentLine.endsWith(" ")) {
+          // Don't echo characters after ssh command arguments
+          return;
+        }
       }
       
       if (inputData === '\r') { // Enter
@@ -573,14 +579,65 @@ const Terminal = () => {
       }
     }, 60000); // 1 minute timeout
     
-    // Replace the terminal's data handler completely during password collection
-    const originalOnDataHandler = xtermRef.current._core._coreService._onData.handlers;
+    // Set a state variable that the main handler will check
+    const handlePasswordInput = (data) => {
+      // If we're not collecting password anymore, ignore this
+      if (!collectingPassword) return;
+      
+      const inputData = typeof data === 'string' ? data : data.data;
+      
+      if (inputData === '\r') { // Enter key
+        // Submit password
+        xtermRef.current.writeln('');
+        
+        // End password collection
+        setCollectingPassword(false);
+        
+        // Clear timeout
+        if (passwordTimeoutRef.current) {
+          clearTimeout(passwordTimeoutRef.current);
+          passwordTimeoutRef.current = null;
+        }
+        
+        // Store the actual password for connecting
+        const enteredPassword = passwordRef.current;
+        
+        // Important: Reset the password immediately 
+        passwordRef.current = '';
+        
+        // Send SSH connection request over WebSocket
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && sshConnectionParams) {
+          wsRef.current.send(JSON.stringify({
+            type: 'connect',
+            host: sshConnectionParams.hostname,
+            port: sshConnectionParams.port,
+            username: sshConnectionParams.username,
+            password: enteredPassword
+          }));
+        } else {
+          xtermRef.current.writeln('\x1b[31mWebSocket connection is not available\x1b[0m');
+          displayPrompt();
+        }
+        
+        return;
+      } else if (inputData === '\u007F') { // Backspace
+        if (passwordRef.current.length > 0) {
+          // Delete the asterisk character from terminal
+          xtermRef.current.write('\b \b');
+          // Remove the last character from the password
+          passwordRef.current = passwordRef.current.slice(0, -1);
+        }
+        return;
+      } else if (inputData.length === 1 && inputData.charCodeAt(0) >= 32 && inputData.charCodeAt(0) !== 127) {
+        // Regular character
+        xtermRef.current.write('*');
+        passwordRef.current += inputData;
+        return;
+      }
+    };
     
-    // Clear all existing handlers
-    xtermRef.current._core._coreService._onData.clear();
-    
-    // Add our password handler as the only handler
-    const listener = xtermRef.current.onData(handlePasswordKeyPress);
+    // Register our password handler - we'll need to handle input competition
+    const disposableListener = xtermRef.current.onData(handlePasswordInput);
     
     // Cleanup
     return () => {
@@ -589,16 +646,9 @@ const Terminal = () => {
         passwordTimeoutRef.current = null;
       }
       
-      // Clear all handlers
-      xtermRef.current._core._coreService._onData.clear();
-      
-      // If we still have the original handlers, restore them
-      if (originalOnDataHandler) {
-        // Restore the original handlers
-        xtermRef.current._core._coreService._onData.handlers = originalOnDataHandler;
-      } else {
-        // Set up a fresh handler for terminal data
-        xtermRef.current.onData(handleTerminalData);
+      // Dispose of our listener when done
+      if (disposableListener && typeof disposableListener.dispose === 'function') {
+        disposableListener.dispose();
       }
     };
   }, [collectingPassword, sshConnectionParams]);
