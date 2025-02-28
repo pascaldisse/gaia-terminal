@@ -523,8 +523,20 @@ const Terminal = () => {
     // Hide input for password entry
     let password = '';
     
-    // Create a password input handler that uses the terminal's current data event
-    const passwordHandler = (e) => {
+    // In xterm.js 5.x, we need to use onData method with a callback
+    // Store the original handler
+    const originalHandler = term.onData;
+    
+    // Create a timeout ID variable for later use
+    let timeoutId;
+    
+    // Create a password input handler function
+    const handlePasswordInput = (e) => {
+      // Clear timeout if it exists
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      
       const data = e.data || e;
       
       if (data === '\r') {  // Enter
@@ -564,18 +576,11 @@ const Terminal = () => {
       }
     };
     
-    // In xterm.js 5.x, we need to use onData method with a callback
-    // Storing the original callback to restore it later
-    const originalHandler = term.onData;
-    const passwordHandlerWrapper = (data) => {
-      passwordHandler(data);
-    };
-    
     // Set our password handler
-    xtermRef.current.onData(passwordHandlerWrapper);
+    xtermRef.current.onData(handlePasswordInput);
     
     // Create a timeout to reset the handler if user doesn't enter password
-    const timeoutId = setTimeout(() => {
+    timeoutId = setTimeout(() => {
       // Restore the original handler after 1 minute (timeout)
       if (xtermRef.current) {
         xtermRef.current.onData(originalHandler);
@@ -583,13 +588,6 @@ const Terminal = () => {
         displayPrompt();
       }
     }, 60000); // 1 minute timeout
-    
-    // Update passwordHandler to clear the timeout
-    const originalPasswordHandler = passwordHandler;
-    passwordHandler = (e) => {
-      clearTimeout(timeoutId); // Clear the timeout when input is received
-      originalPasswordHandler(e);
-    };
   };
 
   return (
