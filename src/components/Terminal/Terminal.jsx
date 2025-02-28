@@ -104,6 +104,10 @@ const Terminal = () => {
     let currentLine = '';
     let cursorPosition = 0;
     
+    // Local variables used for command history navigation
+    // Store this outside the handler so it persists between key presses
+    let localHistoryIndex = -1;
+    
     // Create a variable to store the data handler function
     const handleTerminalData = (data) => {
       // If SSH is active, send all input to the SSH server
@@ -125,9 +129,10 @@ const Terminal = () => {
         // Process command
         processCommand(currentLine);
         
-        // Reset current line and cursor position
+        // Reset current line, cursor position, and history index
         currentLine = '';
         cursorPosition = 0;
+        localHistoryIndex = -1; // Reset the local history tracker too
       } 
       else if (inputData === '\u007F') { // Backspace
         if (currentLine.length > 0 && cursorPosition > 0) {
@@ -142,9 +147,15 @@ const Terminal = () => {
       }
       else if (inputData === '\u001b[A') { // Up arrow
         if (commandHistory.length > 0) {
-          const index = historyIndex === -1 ? 
+          // Use the persistent local variable for history navigation
+          // Initialize it from React state if it's not set yet
+          if (localHistoryIndex === -1 && historyIndex !== -1) {
+            localHistoryIndex = historyIndex;
+          }
+          
+          const index = localHistoryIndex === -1 ? 
             commandHistory.length - 1 : 
-            Math.max(0, historyIndex - 1);
+            Math.max(0, localHistoryIndex - 1);
           
           // Clear current line
           term.write('\r\x1b[K');
@@ -156,13 +167,17 @@ const Terminal = () => {
           
           currentLine = prevCommand;
           cursorPosition = prevCommand.length;
+          
+          // Update local variable for immediate effect
+          localHistoryIndex = index;
+          // Also update React state for persistence
           setHistoryIndex(index);
         }
       }
       else if (inputData === '\u001b[B') { // Down arrow
-        if (commandHistory.length > 0 && historyIndex !== -1) {
-          const index = historyIndex < commandHistory.length - 1 ? 
-            historyIndex + 1 : -1;
+        if (commandHistory.length > 0 && localHistoryIndex !== -1) {
+          const index = localHistoryIndex < commandHistory.length - 1 ? 
+            localHistoryIndex + 1 : -1;
           
           // Clear current line
           term.write('\r\x1b[K');
@@ -181,6 +196,9 @@ const Terminal = () => {
             cursorPosition = nextCommand.length;
           }
           
+          // Update local variable for immediate effect
+          localHistoryIndex = index;
+          // Also update React state for persistence
           setHistoryIndex(index);
         }
       }
