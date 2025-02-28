@@ -123,12 +123,53 @@ const Terminal = () => {
       }
     } else if (data === '\t') { // Tab
       // Handle autocomplete here
+      xtermRef.current.write(data);
+    } else if (data === '\u001b[A') { // Up arrow
+      // Navigate command history (previous command)
+      const { commandHistory, historyIndex } = useTerminalStore.getState();
+      if (commandHistory.length > 0) {
+        const newIndex = Math.max(0, historyIndex > 0 ? historyIndex - 1 : commandHistory.length - 1);
+        const prevCommand = commandHistory[newIndex];
+        
+        // Clear current input
+        for (let i = 0; i < input.length; i++) {
+          xtermRef.current.write('\b \b');
+        }
+        
+        // Write previous command
+        xtermRef.current.write(prevCommand);
+        setInput(prevCommand);
+        useTerminalStore.setState({ historyIndex: newIndex });
+      }
+    } else if (data === '\u001b[B') { // Down arrow
+      // Navigate command history (next command)
+      const { commandHistory, historyIndex } = useTerminalStore.getState();
+      if (commandHistory.length > 0) {
+        const newIndex = historyIndex < commandHistory.length - 1 ? historyIndex + 1 : -1;
+        const nextCommand = newIndex >= 0 ? commandHistory[newIndex] : '';
+        
+        // Clear current input
+        for (let i = 0; i < input.length; i++) {
+          xtermRef.current.write('\b \b');
+        }
+        
+        // Write next command
+        xtermRef.current.write(nextCommand);
+        setInput(nextCommand);
+        useTerminalStore.setState({ historyIndex: newIndex });
+      }
+    } else if (data === '\u001b[C' || data === '\u001b[D') {
+      // Right/Left arrow keys - ignore for now
     } else if (data.charCodeAt(0) === 27) {
-      // Handle arrow keys, etc.
-    } else {
+      // Other escape sequences - ignore
+      console.log('Escape sequence:', data);
+    } else if (data >= ' ' && data <= '~') { // Printable ASCII characters
       // Regular character input
       xtermRef.current.write(data);
       setInput(input + data);
+    } else {
+      // For debugging - log other keypress codes
+      console.log('Key code:', data.charCodeAt(0), data);
     }
   };
   
@@ -144,35 +185,97 @@ const Terminal = () => {
     // Write the command and newline
     xtermRef.current.writeln('');
     
+    // Split command and arguments
+    const parts = cmd.trim().split(/\s+/);
+    const command = parts[0];
+    const args = parts.slice(1);
+    
     // Process command
-    if (cmd === 'clear') {
-      xtermRef.current.clear();
-    } else if (cmd.startsWith('cd ')) {
-      // Change directory (simulated)
-      const newPath = cmd.substring(3).trim();
-      if (newPath === '~' || newPath === '') {
-        setCurrentPath('~');
-      } else if (newPath === '..') {
-        if (currentPath !== '~') {
-          const pathParts = currentPath.split('/');
-          pathParts.pop();
-          setCurrentPath(pathParts.join('/') || '~');
+    switch(command) {
+      case 'clear':
+        xtermRef.current.clear();
+        break;
+        
+      case 'cd':
+        // Change directory (simulated)
+        const newPath = args.join(' ') || '~';
+        if (newPath === '~') {
+          setCurrentPath('~');
+        } else if (newPath === '..') {
+          if (currentPath !== '~') {
+            const pathParts = currentPath.split('/');
+            pathParts.pop();
+            setCurrentPath(pathParts.join('/') || '~');
+          }
+        } else if (newPath.startsWith('/')) {
+          setCurrentPath(newPath);
+        } else {
+          const updatedPath = currentPath === '~' 
+            ? `~/${newPath}` 
+            : `${currentPath}/${newPath}`;
+          setCurrentPath(updatedPath);
         }
-      } else if (newPath.startsWith('/')) {
-        setCurrentPath(newPath);
-      } else {
-        const updatedPath = currentPath === '~' 
-          ? `~/${newPath}` 
-          : `${currentPath}/${newPath}`;
-        setCurrentPath(updatedPath);
-      }
-      // Output nothing for cd command
-    } else if (cmd.startsWith('ssh ')) {
-      // Handle SSH connection
-      connectSSH(cmd.substring(4).trim());
-    } else {
-      // Simulate command output
-      xtermRef.current.writeln(`\x1b[31mCommand not found: ${cmd}\x1b[0m`);
+        break;
+        
+      case 'ls':
+        // Simulate listing files
+        const files = [
+          '\x1b[1;34m.\x1b[0m',
+          '\x1b[1;34m..\x1b[0m',
+          '\x1b[1;34mdocuments\x1b[0m',
+          '\x1b[1;34mdownloads\x1b[0m',
+          '\x1b[1;32mfile1.txt\x1b[0m',
+          '\x1b[1;32mfile2.js\x1b[0m',
+          '\x1b[1;32mREADME.md\x1b[0m',
+          '\x1b[1;31mscript.sh\x1b[0m'
+        ];
+        xtermRef.current.writeln(files.join('  '));
+        break;
+        
+      case 'pwd':
+        // Print working directory
+        const displayPath = currentPath.replace('~', '/home/user');
+        xtermRef.current.writeln(displayPath);
+        break;
+        
+      case 'echo':
+        // Echo arguments
+        xtermRef.current.writeln(args.join(' '));
+        break;
+        
+      case 'date':
+        // Print current date and time
+        xtermRef.current.writeln(new Date().toString());
+        break;
+        
+      case 'whoami':
+        // Print username
+        xtermRef.current.writeln('user');
+        break;
+        
+      case 'ssh':
+        // Handle SSH connection
+        connectSSH(args.join(' '));
+        break;
+        
+      case 'help':
+        // Display available commands
+        xtermRef.current.writeln('\x1b[1;33mAvailable commands:\x1b[0m');
+        xtermRef.current.writeln('  \x1b[1;32mclear\x1b[0m         - Clear the terminal screen');
+        xtermRef.current.writeln('  \x1b[1;32mcd [path]\x1b[0m     - Change directory');
+        xtermRef.current.writeln('  \x1b[1;32mls\x1b[0m            - List files in current directory');
+        xtermRef.current.writeln('  \x1b[1;32mpwd\x1b[0m           - Print working directory');
+        xtermRef.current.writeln('  \x1b[1;32mecho [text]\x1b[0m   - Display text');
+        xtermRef.current.writeln('  \x1b[1;32mdate\x1b[0m          - Display current date and time');
+        xtermRef.current.writeln('  \x1b[1;32mwhoami\x1b[0m        - Display current user');
+        xtermRef.current.writeln('  \x1b[1;32mssh [args]\x1b[0m    - Connect to remote server via SSH');
+        xtermRef.current.writeln('  \x1b[1;32mhelp\x1b[0m          - Display this help message');
+        break;
+        
+      default:
+        // Command not found
+        xtermRef.current.writeln(`\x1b[31mCommand not found: ${command}\x1b[0m`);
+        xtermRef.current.writeln('Type \x1b[1;32mhelp\x1b[0m to see available commands');
     }
     
     // Show prompt again
