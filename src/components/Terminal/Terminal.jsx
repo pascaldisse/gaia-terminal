@@ -530,9 +530,10 @@ const Terminal = () => {
       if (data === '\r') {  // Enter
         xtermRef.current.writeln('');
         
-        // Remove this event listener after password is entered
-        // This is safer than trying to replace onData directly
-        xtermRef.current.off('data', passwordHandler);
+        // Restore original handler after password is entered
+        if (xtermRef.current) {
+          xtermRef.current.onData(originalHandler);
+        }
         
         // Send SSH connection request over WebSocket
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -563,8 +564,32 @@ const Terminal = () => {
       }
     };
     
-    // Use the event listener approach instead of trying to replace onData
-    xtermRef.current.on('data', passwordHandler);
+    // In xterm.js 5.x, we need to use onData method with a callback
+    // Storing the original callback to restore it later
+    const originalHandler = term.onData;
+    const passwordHandlerWrapper = (data) => {
+      passwordHandler(data);
+    };
+    
+    // Set our password handler
+    xtermRef.current.onData(passwordHandlerWrapper);
+    
+    // Create a timeout to reset the handler if user doesn't enter password
+    const timeoutId = setTimeout(() => {
+      // Restore the original handler after 1 minute (timeout)
+      if (xtermRef.current) {
+        xtermRef.current.onData(originalHandler);
+        xtermRef.current.writeln('\r\n\x1b[31mPassword entry timed out\x1b[0m');
+        displayPrompt();
+      }
+    }, 60000); // 1 minute timeout
+    
+    // Update passwordHandler to clear the timeout
+    const originalPasswordHandler = passwordHandler;
+    passwordHandler = (e) => {
+      clearTimeout(timeoutId); // Clear the timeout when input is received
+      originalPasswordHandler(e);
+    };
   };
 
   return (
