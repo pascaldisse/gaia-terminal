@@ -14,10 +14,32 @@ const TerminalContainer = styled.div`
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 `;
 
+// Create a modal component for password input
+const HiddenPasswordModal = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  z-index: 100;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+`;
+
+const HiddenInput = styled.input`
+  position: absolute;
+  top: -9999px;
+  left: -9999px;
+  opacity: 0;
+`;
+
 const Terminal = () => {
   const terminalRef = useRef(null);
   const xtermRef = useRef(null);
   const fitAddonRef = useRef(null);
+  const hiddenInputRef = useRef(null);
   
   // Load command history from localStorage
   const loadCommandHistory = () => {
@@ -523,137 +545,45 @@ const Terminal = () => {
   
   // Set up effect for handling password collection
   useEffect(() => {
-    if (!collectingPassword || !xtermRef.current) return;
+    if (!collectingPassword) return;
     
-    // Function to handle password input
-    const handlePasswordKeyPress = (event) => {
-      const data = event.data || event;
-      
-      if (data === '\r') { // Enter key
-        // Submit password
-        xtermRef.current.writeln('');
-        
-        // End password collection
+    // Set up a timeout to cancel password collection if it takes too long
+    const timeoutId = setTimeout(() => {
+      if (collectingPassword) {
         setCollectingPassword(false);
-        
-        // Clear timeout
-        if (passwordTimeoutRef.current) {
-          clearTimeout(passwordTimeoutRef.current);
-          passwordTimeoutRef.current = null;
-        }
-        
-        // Store the actual password for connecting
-        const enteredPassword = passwordRef.current;
-        
-        // Important: Reset the password immediately 
-        passwordRef.current = '';
-        
-        // Send SSH connection request over WebSocket
-        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && sshConnectionParams) {
-          wsRef.current.send(JSON.stringify({
-            type: 'connect',
-            host: sshConnectionParams.hostname,
-            port: sshConnectionParams.port,
-            username: sshConnectionParams.username,
-            password: enteredPassword
-          }));
-        } else {
-          xtermRef.current.writeln('\x1b[31mWebSocket connection is not available\x1b[0m');
+        if (xtermRef.current) {
+          xtermRef.current.writeln('\r\n\x1b[31mPassword entry timed out\x1b[0m');
           displayPrompt();
         }
-      } else if (data === '\u007F') { // Backspace
-        if (passwordRef.current.length > 0) {
-          // Delete the asterisk character from terminal
-          xtermRef.current.write('\b \b');
-          // Remove the last character from the password
-          passwordRef.current = passwordRef.current.slice(0, -1);
-        }
-      } else if (data.length === 1 && data.charCodeAt(0) >= 32 && data.charCodeAt(0) !== 127) {
-        // Regular character
-        xtermRef.current.write('*');
-        passwordRef.current += data;
-      }
-    };
-    
-    // Set up password collection timeout
-    passwordTimeoutRef.current = setTimeout(() => {
-      setCollectingPassword(false);
-      if (xtermRef.current) {
-        xtermRef.current.writeln('\r\n\x1b[31mPassword entry timed out\x1b[0m');
-        displayPrompt();
       }
     }, 60000); // 1 minute timeout
     
-    // Handle password input securely
-    const handlePasswordInput = (data) => {
-      // If we're not collecting password anymore, ignore this
-      if (!collectingPassword) return;
-      
-      const inputData = typeof data === 'string' ? data : data.data;
-      
-      if (inputData === '\r') { // Enter key
-        // Submit password by moving to next line
-        xtermRef.current.writeln('');
-        
-        // End password collection
+    // Handle escape key to cancel password entry
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && collectingPassword) {
+        e.preventDefault();
         setCollectingPassword(false);
-        
-        // Clear timeout
-        if (passwordTimeoutRef.current) {
-          clearTimeout(passwordTimeoutRef.current);
-          passwordTimeoutRef.current = null;
-        }
-        
-        // Store the actual password for connecting
-        const enteredPassword = passwordRef.current;
-        
-        // Important: Reset the password immediately 
-        passwordRef.current = '';
-        
-        // Send SSH connection request over WebSocket
-        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && sshConnectionParams) {
-          wsRef.current.send(JSON.stringify({
-            type: 'connect',
-            host: sshConnectionParams.hostname,
-            port: sshConnectionParams.port,
-            username: sshConnectionParams.username,
-            password: enteredPassword
-          }));
-        } else {
-          xtermRef.current.writeln('\x1b[31mWebSocket connection is not available\x1b[0m');
+        if (xtermRef.current) {
+          xtermRef.current.writeln('\r\n\x1b[31mPassword entry cancelled\x1b[0m');
           displayPrompt();
         }
-        
-        return;
-      } else if (inputData === '\u007F') { // Backspace
-        if (passwordRef.current.length > 0) {
-          // For a true hidden password field, don't show anything when backspacing
-          // Just update our stored password
-          passwordRef.current = passwordRef.current.slice(0, -1);
-        }
-        return;
-      } else if (inputData.length === 1 && inputData.charCodeAt(0) >= 32 && inputData.charCodeAt(0) !== 127) {
-        // Regular character - don't show any output for truly hidden password
-        // Just store the character in our password
-        passwordRef.current += inputData;
-        return;
       }
     };
     
-    // Register our password handler - we'll need to handle input competition
-    const disposableListener = xtermRef.current.onData(handlePasswordInput);
+    // Add global keyboard listener for escape
+    document.addEventListener('keydown', handleEscape);
     
-    // Cleanup
+    // Focus the hidden input field
+    if (hiddenInputRef.current) {
+      setTimeout(() => {
+        hiddenInputRef.current.focus();
+      }, 100);
+    }
+    
+    // Cleanup when component unmounts or password collection ends
     return () => {
-      if (passwordTimeoutRef.current) {
-        clearTimeout(passwordTimeoutRef.current);
-        passwordTimeoutRef.current = null;
-      }
-      
-      // Dispose of our listener when done
-      if (disposableListener && typeof disposableListener.dispose === 'function') {
-        disposableListener.dispose();
-      }
+      clearTimeout(timeoutId);
+      document.removeEventListener('keydown', handleEscape);
     };
   }, [collectingPassword, sshConnectionParams]);
   
@@ -748,6 +678,32 @@ const Terminal = () => {
     };
   }, []);
   
+  // Function to submit SSH password after it's been collected
+  const submitSSHPassword = (password) => {
+    if (!wsRef.current || !sshConnectionParams) {
+      xtermRef.current.writeln('\x1b[31mError: Connection parameters lost\x1b[0m');
+      displayPrompt();
+      return;
+    }
+    
+    // Submit the SSH connection
+    xtermRef.current.writeln(''); // Add a line break after password input
+    
+    // Send SSH connection request over WebSocket
+    if (wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        type: 'connect',
+        host: sshConnectionParams.hostname,
+        port: sshConnectionParams.port,
+        username: sshConnectionParams.username,
+        password: password
+      }));
+    } else {
+      xtermRef.current.writeln('\x1b[31mWebSocket connection is not available\x1b[0m');
+      displayPrompt();
+    }
+  };
+  
   // Handle SSH connection
   const connectSSH = (sshCommand) => {
     if (!xtermRef.current || !wsRef.current) return;
@@ -792,24 +748,54 @@ const Terminal = () => {
     // Output connection message
     xtermRef.current.writeln(`\x1b[34mConnecting to ${username}@${hostname}:${port}...\x1b[0m`);
     
-    // Wait a brief moment before showing password prompt to ensure it's on a new line
+    // Prompt for password
+    xtermRef.current.write('\x1b[33mPassword: \x1b[0m');
+    
+    // Save SSH connection parameters for when password is submitted
+    setSshConnectionParams({ username, hostname, port });
+    
+    // Enable password collection mode to show the hidden input field
+    setCollectingPassword(true);
+    
+    // Focus the hidden input field
     setTimeout(() => {
-      // Prompt for password
-      xtermRef.current.write('\x1b[33mPassword: \x1b[0m');
-      
-      // Clear any existing password
-      passwordRef.current = '';
-      
-      // Save SSH connection parameters for the password handler
-      setSshConnectionParams({ username, hostname, port });
-      
-      // Enable password collection mode
-      setCollectingPassword(true);
+      if (hiddenInputRef.current) {
+        hiddenInputRef.current.focus();
+      }
     }, 50);
   };
 
   return (
-    <TerminalContainer ref={terminalRef} />
+    <TerminalContainer ref={terminalRef}>
+      {collectingPassword && (
+        <HiddenPasswordModal>
+          <HiddenInput 
+            ref={hiddenInputRef}
+            type="password"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                // Stop the event from propagating
+                e.stopPropagation();
+                e.preventDefault();
+                
+                // Get the password
+                const enteredPassword = e.target.value;
+                
+                // Clear the input
+                e.target.value = '';
+                
+                // End password collection
+                setCollectingPassword(false);
+                
+                // Submit the password
+                submitSSHPassword(enteredPassword);
+              }
+            }}
+          />
+        </HiddenPasswordModal>
+      )}
+    </TerminalContainer>
   );
 };
 
