@@ -540,12 +540,16 @@ const Terminal = () => {
         }
       } else if (data === '\u007F') {  // Backspace
         if (password.length > 0) {
+          // Delete the asterisk character from terminal
+          xtermRef.current.write('\b \b');
+          // Remove the last character from the password
           password = password.slice(0, -1);
         }
       } else if (data.charCodeAt(0) < 32 || data.charCodeAt(0) === 127) {
         // Control characters - ignore
       } else {
-        // Add to password (don't display)
+        // Add to password but display asterisk instead
+        xtermRef.current.write('*');
         password += data;
       }
     };
