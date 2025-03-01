@@ -132,10 +132,37 @@ wss.on('connection', (ws) => {
         case 'data':
           // Send data to SSH server
           const connection = sshConnections.get(ws);
-          console.log(`[SSH DATA] Received data from client: "${data.data}" (${Buffer.from(data.data).toString('hex')})`);
+          const inputData = data.data;
+          console.log(`[SSH DATA] Received data from client: "${inputData}" (${Buffer.from(inputData).toString('hex')})`);
+          
           if (connection && connection.stream) {
+            // CRITICAL: Track if this contains an Enter key and log it clearly
+            if (inputData.includes('\r') || inputData.includes('\n')) {
+              console.log(`[SSH DATA] ⚠️ ENTER KEY DETECTED in input: "${inputData.replace(/\r/g, '\\r').replace(/\n/g, '\\n')}"`);
+            }
+            
             console.log('[SSH DATA] Forwarding to SSH stream');
-            connection.stream.write(data.data);
+            
+            // For testing - let's try to manually handle \r and ensure we send \r\n
+            // This is needed because different terminals/SSH servers expect different newline formats
+            let modifiedData = inputData;
+            
+            // Option 1: If we received bare \r, convert to \r\n
+            if (inputData === '\r') {
+              modifiedData = '\r\n';
+              console.log('[SSH DATA] Converting bare \\r to \\r\\n');
+            }
+            // Option 2: If we received just \n, convert to \r\n  
+            else if (inputData === '\n') {
+              modifiedData = '\r\n';
+              console.log('[SSH DATA] Converting bare \\n to \\r\\n');
+            }
+            
+            // Log what we're actually sending
+            console.log(`[SSH DATA] Actually sending: "${modifiedData.replace(/\r/g, '\\r').replace(/\n/g, '\\n')}" (${Buffer.from(modifiedData).toString('hex')})`);
+            
+            // Send the data to the SSH stream
+            connection.stream.write(modifiedData);
           } else {
             console.error('[SSH DATA] No active SSH connection or stream');
             ws.send(JSON.stringify({

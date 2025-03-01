@@ -145,21 +145,39 @@ const Terminal = () => {
         const inputToSend = data.data || data;
         console.log(`[SSH CLIENT] Sending to server: "${inputToSend}" (${inputToSend.split('').map(c => c.charCodeAt(0).toString(16)).join(' ')})`);
         
-        // CRITICAL FIX: Check if this is a carriage return (Enter key)
+        // ADVANCED DEBUGGING - store every keystroke to analyze patterns
+        if (!window.sshInputLog) window.sshInputLog = [];
+        window.sshInputLog.push({
+          timestamp: new Date().toISOString(),
+          input: inputToSend,
+          charCodes: Array.from(inputToSend).map(c => c.charCodeAt(0)),
+          hexCodes: Array.from(inputToSend).map(c => c.charCodeAt(0).toString(16))
+        });
+        
+        // CRITICAL FIX: Based on our ssh-xterm-fix.js test results:
+        // 1. When xterm.js emits a '\r' (Enter key), bash expects '\r\n'
+        // 2. Just sending '\r' will actually trigger a carriage return but not a newline
+        // 3. All three of our test formats worked, showing bash is flexible, but needs proper line termination
+        
+        // Special handling for Enter key (CR)
         if (inputToSend === '\r') {
-          console.log(`[SSH CLIENT] Enter key detected - sending \\r\\n sequence instead of \\r`);
-          // Send proper newline sequence for SSH servers
+          console.log(`[SSH CLIENT] ⚠️ Enter key detected - sending complete \\r\\n sequence`);
+          
+          // The key to fixing the SSH command execution issue
           wsRef.current.send(JSON.stringify({
             type: 'data',
-            data: '\r\n'
+            data: '\r\n'  // Send standard CRLF
           }));
-        } else {
-          // Send regular input as-is
-          wsRef.current.send(JSON.stringify({
-            type: 'data',
-            data: inputToSend
-          }));
+          
+          return;
         }
+        
+        // For all other keys, send as-is 
+        wsRef.current.send(JSON.stringify({
+          type: 'data',
+          data: inputToSend
+        }));
+        
         return;
       }
       
@@ -614,6 +632,44 @@ const Terminal = () => {
     };
   }, [collectingPassword, sshConnectionParams]);
   
+  // Add additional effect for monitoring SSH status
+  useEffect(() => {
+    // Track when SSH becomes active or inactive
+    console.log(`[SSH STATUS] isSSHActive changed to: ${isSSHActive}`);
+    
+    if (isSSHActive) {
+      // Utility function to dump all collected debug logs
+      const dumpLogs = () => {
+        if (window.sshInputLog && window.sshInputLog.length > 0) {
+          console.log(`[SSH DEBUG] Input log (${window.sshInputLog.length} entries):`);
+          console.table(window.sshInputLog);
+        }
+      };
+      
+      // Create an interval to periodically check if terminal is still responsive
+      const checkInterval = setInterval(() => {
+        if (isSSHActive && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          console.log('[SSH HEALTH] Checking SSH connection health...');
+          
+          // Add a handler to detect connection problems by measuring response time
+          const lastResponseTime = window.lastSshResponse || 0;
+          const now = Date.now();
+          
+          if (now - lastResponseTime > 5000) {
+            console.warn('[SSH HEALTH] No recent SSH server response detected');
+          }
+        }
+      }, 10000);
+      
+      // Return cleanup function
+      return () => {
+        clearInterval(checkInterval);
+        // Dump logs when SSH session ends for analysis
+        dumpLogs();
+      };
+    }
+  }, [isSSHActive]);
+  
   // Create WebSocket connection
   const createWSConnection = () => {
     // Get location protocol, hostname and port
@@ -668,7 +724,23 @@ const Terminal = () => {
             
           case 'data':
             if (xtermRef.current) {
-              console.log(`[SSH CLIENT] Received data from server: "${message.data.substring(0, 50)}${message.data.length > 50 ? '...' : ''}"`);
+              // Track last response time for health checks
+              window.lastSshResponse = Date.now();
+              
+              // Log received data from server
+              console.log(`[SSH CLIENT] Received data from server: "${message.data.substring(0, 50).replace(/\r/g, '\\r').replace(/\n/g, '\\n')}${message.data.length > 50 ? '...' : ''}"`);
+              
+              // Track if this looks like a prompt - helps debug when server is expecting input
+              if (message.data.match(/[#\$] *$/)) {
+                console.log('[SSH CLIENT] 🔍 Detected prompt in response, server is waiting for input');
+              }
+              
+              // Check if we're receiving a bracketed paste sequence or other special sequence
+              if (message.data.includes('\x1b[?2004h')) {
+                console.log('[SSH CLIENT] 🔍 Detected bracketed paste mode (terminal is ready for input)');
+              }
+              
+              // Write the data to the terminal
               xtermRef.current.write(message.data);
             }
             break;
