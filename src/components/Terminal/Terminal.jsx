@@ -147,6 +147,9 @@ const Terminal = ({ id }) => {
     }
   };
   
+  // WebSocket connection for SSH
+  const wsRef = useRef(null);
+  
   // Local state
   const [currentPath, setCurrentLocalPath] = useState(() => {
     try {
@@ -163,6 +166,21 @@ const Terminal = ({ id }) => {
   const [lastCommand, setLastCommand] = useState('');
   const [gitInfo, setGitInfo] = useState(null);
   const [nodeVersion, setNodeVersion] = useState(null);
+  const [isSSHActive, setIsSSHActive] = useState(false);
+  const [collectingPassword, setCollectingPassword] = useState(false);
+  const [sshConnectionParams, setSshConnectionParams] = useState(null);
+  
+  // SSH password cache for returning to previously connected servers
+  const [sshPasswordCache, setSshPasswordCache] = useState(() => {
+    try {
+      // Load saved passwords from localStorage
+      const savedPasswords = localStorage.getItem('sshPasswordCache');
+      return savedPasswords ? JSON.parse(savedPasswords) : {};
+    } catch (err) {
+      console.error('Error loading SSH password cache:', err);
+      return {};
+    }
+  });
   
   useEffect(() => {
     // Initialize terminal
@@ -918,25 +936,7 @@ const Terminal = ({ id }) => {
     displayPrompt();
   };
   
-  // WebSocket connection for SSH
-  const wsRef = useRef(null);
-  const [isSSHActive, setIsSSHActive] = useState(false);
-  const [collectingPassword, setCollectingPassword] = useState(false);
-  const [sshConnectionParams, setSshConnectionParams] = useState(null);
-  
-  // SSH password cache for returning to previously connected servers
-  const [sshPasswordCache, setSshPasswordCache] = useState(() => {
-    try {
-      // Load saved passwords from localStorage
-      const savedPasswords = localStorage.getItem('sshPasswordCache');
-      return savedPasswords ? JSON.parse(savedPasswords) : {};
-    } catch (err) {
-      console.error('Error loading SSH password cache:', err);
-      return {};
-    }
-  });
-  
-  // Save password to cache whenever it changes
+  // Effect hooks for SSH functionality
   useEffect(() => {
     try {
       localStorage.setItem('sshPasswordCache', JSON.stringify(sshPasswordCache));
