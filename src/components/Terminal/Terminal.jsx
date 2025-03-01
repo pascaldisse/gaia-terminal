@@ -141,6 +141,7 @@ const Terminal = () => {
       
       // If SSH is active, send all input to the SSH server
       if (isSSHActive && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        // Send the data directly to SSH server without any local processing
         wsRef.current.send(JSON.stringify({
           type: 'data',
           data: data.data || data
@@ -366,6 +367,12 @@ const Terminal = () => {
     
     // Special handling for SSH mode
     if (isSSHActive) {
+      // Important: When SSH is active, the terminal's processCommand should NOT
+      // process any commands (not even enter key presses)
+      // All data should be sent directly via the onData handler, which sends it
+      // to the SSH connection without any local processing
+      
+      // Only handle special commands locally
       if (cmd === 'exit' || cmd === 'logout') {
         // Disconnect from SSH
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -377,10 +384,9 @@ const Terminal = () => {
         setCollectingPassword(false);
         xtermRef.current.writeln('\x1b[33mDisconnected from SSH server\x1b[0m');
         displayPrompt();
-        return;
       }
       
-      // All other commands should have been sent directly via the onData handler
+      // Don't process any other commands locally when in SSH mode
       return;
     }
     
