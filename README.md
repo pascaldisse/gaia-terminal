@@ -1,8 +1,8 @@
-# 🚀 Spaceflight Terminal
+# 🚀 Gaia Terminal
 
 A modern, spaceship-prompt inspired web terminal with SSH capabilities.
 
-![Spaceflight Terminal Screenshot](https://github.com/spaceship-prompt/spaceship-prompt/raw/master/preview.gif)
+![Gaia Terminal Screenshot](https://github.com/spaceship-prompt/spaceship-prompt/raw/master/preview.gif)
 
 ## 📋 Table of Contents
 
@@ -34,7 +34,7 @@ A modern, spaceship-prompt inspired web terminal with SSH capabilities.
 
 ## 🏗️ Architecture
 
-Spaceflight Terminal consists of two main components:
+Gaia Terminal consists of two main components:
 
 1. **Frontend**: React + Vite application providing the terminal UI
    - Uses xterm.js for terminal emulation
@@ -85,7 +85,7 @@ This project includes comprehensive documentation:
 
 ## 💻 Command Support
 
-Spaceflight Terminal supports a variety of commands:
+Gaia Terminal supports a variety of commands:
 
 ### Basic Commands
 
@@ -154,8 +154,8 @@ You can customize various aspects of the terminal through the settings panel:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/spaceflight-terminal.git
-cd spaceflight-terminal
+git clone https://github.com/yourusername/gaia-terminal.git
+cd gaia-terminal
 
 # Install dependencies
 npm install
