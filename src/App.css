@@ -1,0 +1,34 @@
+.terminal-container {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--bg-primary);
+  padding: 0.5rem;
+}
+
+.hidden {
+  display: none;
+}
+
+.xterm-viewport {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--bg-tertiary) var(--bg-primary);
+}
+
+.xterm-viewport::-webkit-scrollbar {
+  width: 8px;
+}
+
+.xterm-viewport::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+.xterm-viewport::-webkit-scrollbar-thumb {
+  background-color: var(--bg-tertiary);
+  border-radius: 4px;
+}
+
+.xterm-cursor {
+  border-left-width: 2px;
+}
