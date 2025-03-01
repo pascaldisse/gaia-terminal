@@ -2,9 +2,25 @@
 
 A modern, spaceship-prompt inspired web terminal with SSH capabilities.
 
-![Spaceflight Terminal](https://github.com/spaceship-prompt/spaceship-prompt/raw/master/preview.gif)
+![Spaceflight Terminal Screenshot](https://github.com/spaceship-prompt/spaceship-prompt/raw/master/preview.gif)
 
-## Features
+## 📋 Table of Contents
+
+- [Features](#features)
+- [Architecture](#architecture)
+- [Terminal Interface](#terminal-interface)
+- [Documentation](#documentation)
+- [Command Support](#command-support)
+- [SSH Capabilities](#ssh-capabilities)
+- [Customization](#customization)
+- [Getting Started](#getting-started)
+- [Development](#development)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
+- [License](#license)
+- [Acknowledgements](#acknowledgements)
+
+## ✨ Features
 
 - 🚀 **Beautiful Spaceship-inspired Design**: Elegant and modern UI with Dracula color theme
 - 🔌 **SSH Integration**: Connect to remote servers directly from your browser
@@ -16,7 +32,7 @@ A modern, spaceship-prompt inspired web terminal with SSH capabilities.
 - 🧠 **Smart Command History**: Navigate through command history with ease
 - 📱 **Responsive Design**: Works on desktop and mobile devices
 
-## Architecture
+## 🏗️ Architecture
 
 Spaceflight Terminal consists of two main components:
 
@@ -30,7 +46,34 @@ Spaceflight Terminal consists of two main components:
    - SSH2 library for secure connections
    - Proxies data between client and SSH servers
 
-## Documentation
+## 🖥️ Terminal Interface
+
+The interface consists of several main components:
+
+1. **Toolbar**: Contains actions for creating new terminals, opening SSH connections, and accessing settings
+2. **Tabs Bar**: Shows all open terminal sessions and allows switching between them
+3. **Terminal Window**: The main terminal interface where you can enter commands
+4. **Spaceship Prompt**: The multi-line prompt showing context information
+
+### The Spaceship Prompt
+
+The terminal features a spaceship-style prompt with contextual information:
+
+```
+┌─[username@hostname] in ~/path/to/directory on ⎇ main [⚑]
+├─[⬢ v18.12.1] [⏱ took 2.5s] [✓]
+└─➜ 
+```
+
+The prompt contains:
+- **User & Host**: Shows current username and hostname
+- **Directory**: Shows current working directory
+- **Git Information**: Shows git branch and status when in a git repository
+- **Node.js Version**: Shows Node.js version for applicable projects
+- **Execution Time**: Shows execution time for commands that take longer than 2 seconds
+- **Exit Status**: Shows ✓ for successful commands, ✗ for errors
+
+## 📚 Documentation
 
 This project includes comprehensive documentation:
 
@@ -38,28 +81,69 @@ This project includes comprehensive documentation:
 - **[IMPLEMENTATION.md](IMPLEMENTATION.md)**: Technical documentation for developers who want to understand or extend the codebase 
 - **[PROMPT_GUIDE.md](PROMPT_GUIDE.md)**: Detailed guide explaining the spaceship-prompt implementation and customization
 - **[DESIGN.md](DESIGN.md)**: Overview of design principles and architectural decisions
+- **[SUMMARY.md](SUMMARY.md)**: Brief overview of the project and its implementation
 
-The documentation covers everything from basic usage to advanced customization and development workflows.
+## 💻 Command Support
 
-## Terminal Prompt Design
+Spaceflight Terminal supports a variety of commands:
 
-The terminal features a multi-line spaceship-style prompt:
+### Basic Commands
 
-```
-┌─[username@hostname] in ~/directory on ⎇ branch [status]
-├─[⬢ node-version] [⏱ execution-time] [✓]
-└─➜ 
-```
+| Command | Description |
+|---------|-------------|
+| `help` | Display available commands |
+| `clear` | Clear the terminal screen |
+| `cd <path>` | Change directory |
+| `ls` | List files in current directory |
+| `pwd` | Print working directory |
+| `echo <text>` | Display text |
+| `date` | Display current date and time |
+| `whoami` | Display current user |
+| `history` | Display command history |
+| `history -c` | Clear command history |
 
-The prompt includes these context-aware sections:
-- User and hostname
-- Current directory
-- Git branch and status
-- Node.js version (when applicable)
-- Command execution time (for long-running commands)
-- Exit status of the last command
+### Git Commands
 
-## Getting Started
+| Command | Description |
+|---------|-------------|
+| `git status` | Show Git repository status |
+| `git checkout <branch>` | Switch to another branch |
+
+### Node.js Commands
+
+| Command | Description |
+|---------|-------------|
+| `node` | Start Node.js REPL |
+| `node -v` | Display Node.js version |
+| `npm install <package>` | Install an npm package |
+| `npm run <script>` | Run an npm script |
+
+## 🔐 SSH Capabilities
+
+### Connecting to SSH
+
+You can connect to SSH servers in two ways:
+
+1. **Command Line**: Type `ssh username@hostname` in the terminal
+2. **SSH Modal**: Click the "SSH" button in the toolbar and fill in connection details
+
+### SSH Modal Features
+
+The SSH connection modal provides:
+- Connection details input (hostname, username, port)
+- Password and private key authentication options
+- Saved connection management
+- Option to remember credentials
+
+## 🎨 Customization
+
+You can customize various aspects of the terminal through the settings panel:
+
+- **Prompt Sections**: Enable/disable sections in the terminal settings
+- **Appearance**: Adjust font family, size, and cursor styles
+- **Terminal Behavior**: Configure scrollback limits, tab behavior, and more
+
+## 🚀 Getting Started
 
 ### Prerequisites
 
@@ -90,42 +174,51 @@ npm run build
 node server.js
 ```
 
-## Customization
+## 🛠️ Development
 
-You can customize various aspects of the terminal through the settings panel:
+### Available Commands
 
-- **Prompt Sections**: Enable/disable sections in the terminal settings
-- **Appearance**: Adjust font family, size, and cursor styles
-- **Terminal Behavior**: Configure scrollback limits, tab behavior, and more
+- **Development**: `npm run dev` - Run Vite development server
+- **Build**: `npm run build` - Build for production
+- **Lint**: `npm run lint` - Run ESLint checks
+- **Preview**: `npm run preview` - Preview production build
 
-## Available Commands
+### Code Style
 
-The terminal supports these command categories:
+- **Formatting**: 2-space indentation, consistent spacing, 80-char line limit
+- **Components**: Functional components with hooks, default exports
+- **Imports**: React first, external libraries next, local modules, CSS last
+- **Naming**: PascalCase for components, camelCase for variables/functions
+- **Error handling**: Use try/catch for async operations, provide user feedback
 
-- **Basic Commands**: `help`, `clear`, `cd`, `ls`, `pwd`, etc.
-- **Git Commands**: `git status`, `git checkout`, etc.
-- **Node.js Commands**: `node`, `npm install`, `npm run`, etc.
-- **SSH Commands**: Connect to remote servers via SSH
+## 🔧 Troubleshooting
 
-For a complete list of commands, see the [User Guide](USER_GUIDE.md).
+If you encounter issues:
 
-## SSH Functionality
+1. **SSH Connection Problems**:
+   - Verify hostname, username, and port
+   - Check network connectivity
+   - Ensure the SSH server is running and accessible
 
-The SSH integration allows you to:
-- Connect to remote servers using password or key-based authentication
-- Save connection details for quick reconnection
-- Transfer data securely between the browser and SSH servers
-- Use all standard SSH commands as you would in a native terminal
+2. **Terminal Display Issues**:
+   - Try adjusting the terminal window size
+   - Clear the terminal with the `clear` command
+   - Reload the page if issues persist
 
-## Contributing
+3. **Performance Issues**:
+   - Limit the number of open terminal tabs
+   - Close tabs when not in use
+   - Clear very long output with the `clear` command
+
+## 🤝 Contributing
 
 Contributions are welcome! See [IMPLEMENTATION.md](IMPLEMENTATION.md) for details on the codebase structure and development workflow.
 
-## License
+## 📜 License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## Acknowledgements
+## 🙏 Acknowledgements
 
 - [Spaceship Prompt](https://github.com/spaceship-prompt/spaceship-prompt) for design inspiration
 - [xterm.js](https://github.com/xtermjs/xterm.js) for terminal emulation

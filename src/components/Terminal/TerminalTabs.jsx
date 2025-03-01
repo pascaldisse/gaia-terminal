@@ -36,20 +36,20 @@ const Tab = styled.div`
   min-width: 120px;
   max-width: 200px;
   cursor: pointer;
-  border-top: 2px solid ${props => props.active ? '#bd93f9' : 'transparent'};
-  background-color: ${props => props.active ? '#282a36' : 'transparent'};
+  border-top: 2px solid ${props => props.isActive ? '#bd93f9' : 'transparent'};
+  background-color: ${props => props.isActive ? '#282a36' : 'transparent'};
   transition: all 0.2s;
   margin-right: 2px;
   border-top-left-radius: 4px;
   border-top-right-radius: 4px;
   
   &:hover {
-    background-color: ${props => props.active ? '#282a36' : '#21222c'};
+    background-color: ${props => props.isActive ? '#282a36' : '#21222c'};
   }
 `;
 
 const TabTitle = styled.div`
-  color: ${props => props.active ? '#f8f8f2' : '#6272a4'};
+  color: ${props => props.isActive ? '#f8f8f2' : '#6272a4'};
   font-size: 12px;
   font-family: 'JetBrains Mono', monospace;
   white-space: nowrap;
@@ -154,13 +154,13 @@ const TerminalTabs = ({ onNewTab }) => {
       {tabs.map((tab) => (
         <Tab 
           key={tab.id} 
-          active={tab.id === activeTabId}
+          isActive={tab.id === activeTabId}
           onClick={() => handleTabClick(tab.id)}
         >
           <TabIcon type={tab.type}>
             {getTabIcon(tab)}
           </TabIcon>
-          <TabTitle active={tab.id === activeTabId}>
+          <TabTitle isActive={tab.id === activeTabId}>
             {tab.title}
             {tab.type === 'ssh' && tab.hostname && <span className="hostname">@{tab.hostname}</span>}
           </TabTitle>

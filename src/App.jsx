@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import styled, { createGlobalStyle } from 'styled-components';
 import Terminal from './components/Terminal/Terminal';
 import TerminalToolbar from './components/Terminal/TerminalToolbar';
@@ -8,10 +8,8 @@ import SettingsPanel from './components/Settings/SettingsPanel';
 import { useTerminalStore } from './stores/terminalStore';
 import './App.css';
 
-// Import custom font
+// Global styles without @import
 const GlobalStyle = createGlobalStyle`
-  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
-  
   body {
     margin: 0;
     padding: 0;
@@ -106,14 +104,7 @@ function App() {
     setActiveTab 
   } = useTerminalStore();
   
-  // Create an initial terminal tab on mount
-  useEffect(() => {
-    if (tabs.length === 0) {
-      createNewTab();
-    }
-  }, [tabs.length]);
-  
-  const createNewTab = () => {
+  const createNewTab = useCallback(() => {
     const newTabId = Date.now().toString();
     const newTab = {
       id: newTabId,
@@ -122,7 +113,14 @@ function App() {
     };
     
     addTab(newTab);
-  };
+  }, [addTab]);
+  
+  // Create an initial terminal tab on mount
+  useEffect(() => {
+    if (tabs.length === 0) {
+      createNewTab();
+    }
+  }, [tabs.length, createNewTab]);
   
   const handleOpenSSH = () => {
     setIsSSHModalOpen(true);
