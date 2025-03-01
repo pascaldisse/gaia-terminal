@@ -768,7 +768,11 @@ const Terminal = () => {
   return (
     <TerminalContainer ref={terminalRef}>
       {collectingPassword && (
-        <HiddenPasswordModal>
+        <HiddenPasswordModal onClick={() => {
+          if (hiddenInputRef.current) {
+            hiddenInputRef.current.focus();
+          }
+        }}>
           <HiddenInput 
             ref={hiddenInputRef}
             type="password"
@@ -790,6 +794,30 @@ const Terminal = () => {
                 
                 // Submit the password
                 submitSSHPassword(enteredPassword);
+              } else if (e.key === 'Escape') {
+                // Handle escape key to cancel
+                e.stopPropagation();
+                e.preventDefault();
+                
+                // Clear the input
+                e.target.value = '';
+                
+                // End password collection
+                setCollectingPassword(false);
+                
+                if (xtermRef.current) {
+                  xtermRef.current.writeln('\r\n\x1b[31mPassword entry cancelled\x1b[0m');
+                  displayPrompt();
+                }
+              }
+            }}
+            // Add blur event to refocus to prevent losing focus
+            onBlur={(e) => {
+              if (collectingPassword) {
+                // Refocus after a short delay
+                setTimeout(() => {
+                  e.target.focus();
+                }, 10);
               }
             }}
           />
