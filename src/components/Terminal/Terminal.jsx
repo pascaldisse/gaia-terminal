@@ -142,10 +142,24 @@ const Terminal = () => {
       // If SSH is active, send all input to the SSH server
       if (isSSHActive && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         // Send the data directly to SSH server without any local processing
-        wsRef.current.send(JSON.stringify({
-          type: 'data',
-          data: data.data || data
-        }));
+        const inputToSend = data.data || data;
+        console.log(`[SSH CLIENT] Sending to server: "${inputToSend}" (${inputToSend.split('').map(c => c.charCodeAt(0).toString(16)).join(' ')})`);
+        
+        // CRITICAL FIX: Check if this is a carriage return (Enter key)
+        if (inputToSend === '\r') {
+          console.log(`[SSH CLIENT] Enter key detected - sending \\r\\n sequence instead of \\r`);
+          // Send proper newline sequence for SSH servers
+          wsRef.current.send(JSON.stringify({
+            type: 'data',
+            data: '\r\n'
+          }));
+        } else {
+          // Send regular input as-is
+          wsRef.current.send(JSON.stringify({
+            type: 'data',
+            data: inputToSend
+          }));
+        }
         return;
       }
       
@@ -188,6 +202,8 @@ const Terminal = () => {
       
       if (inputData === '\r') { // Enter
         term.write('\r\n');
+        
+        console.log(`[TERMINAL] Processing command: "${currentLine}"`);
         
         // Process command
         processCommand(currentLine);
@@ -367,6 +383,8 @@ const Terminal = () => {
     
     // Special handling for SSH mode
     if (isSSHActive) {
+      console.log(`[SSH MODE] Command received while in SSH mode: "${cmd}"`);
+      
       // Important: When SSH is active, the terminal's processCommand should NOT
       // process any commands (not even enter key presses)
       // All data should be sent directly via the onData handler, which sends it
@@ -374,6 +392,7 @@ const Terminal = () => {
       
       // Only handle special commands locally
       if (cmd === 'exit' || cmd === 'logout') {
+        console.log('[SSH MODE] Processing exit/logout command locally');
         // Disconnect from SSH
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
           wsRef.current.send(JSON.stringify({
@@ -384,6 +403,8 @@ const Terminal = () => {
         setCollectingPassword(false);
         xtermRef.current.writeln('\x1b[33mDisconnected from SSH server\x1b[0m');
         displayPrompt();
+      } else {
+        console.log('[SSH MODE] Ignoring local command processing for SSH session');
       }
       
       // Don't process any other commands locally when in SSH mode
@@ -612,10 +633,12 @@ const Terminal = () => {
     wsRef.current.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
+        console.log(`[WS CLIENT] Received message type: ${message.type}`);
         
         switch (message.type) {
           case 'connected':
             if (xtermRef.current) {
+              console.log('[SSH CLIENT] Connection established');
               xtermRef.current.writeln(`\x1b[32m${message.message}\x1b[0m`);
               setIsSSHActive(true);
             }
@@ -623,6 +646,7 @@ const Terminal = () => {
             
           case 'disconnected':
             if (xtermRef.current) {
+              console.log('[SSH CLIENT] Disconnected from server');
               xtermRef.current.writeln(`\x1b[33m${message.message}\x1b[0m`);
               setIsSSHActive(false);
               // Make sure we're not collecting password anymore
@@ -633,6 +657,7 @@ const Terminal = () => {
             
           case 'error':
             if (xtermRef.current) {
+              console.error(`[SSH CLIENT] Error: ${message.message}`);
               xtermRef.current.writeln(`\x1b[31mError: ${message.message}\x1b[0m`);
               setIsSSHActive(false);
               // Make sure we're not collecting password anymore
@@ -643,6 +668,7 @@ const Terminal = () => {
             
           case 'data':
             if (xtermRef.current) {
+              console.log(`[SSH CLIENT] Received data from server: "${message.data.substring(0, 50)}${message.data.length > 50 ? '...' : ''}"`);
               xtermRef.current.write(message.data);
             }
             break;
@@ -692,8 +718,16 @@ const Terminal = () => {
       return;
     }
     
+    // Enable debug mode for SSH - logs all keypresses to the terminal
+    const debugSsh = true;
+    
     // Submit the SSH connection
     xtermRef.current.writeln(''); // Add a line break after password input
+    
+    // Log debug info if enabled
+    if (debugSsh) {
+      xtermRef.current.writeln('\x1b[33m[DEBUG] SSH debug mode enabled\x1b[0m');
+    }
     
     // Send SSH connection request over WebSocket
     if (wsRef.current.readyState === WebSocket.OPEN) {
@@ -702,8 +736,32 @@ const Terminal = () => {
         host: sshConnectionParams.hostname,
         port: sshConnectionParams.port,
         username: sshConnectionParams.username,
-        password: password
+        password: password,
+        debug: debugSsh
       }));
+      
+      // Modify the onData handler to add special debugging in SSH mode
+      if (debugSsh && xtermRef.current) {
+        // Create a wrapped onData function that shows each keypress
+        const originalHandleData = xtermRef.current._core._handleData;
+        xtermRef.current._core._handleData = (data) => {
+          // First call the original handler
+          originalHandleData.call(xtermRef.current._core, data);
+          
+          // If we're in SSH mode, log the key code
+          if (isSSHActive) {
+            const charCodes = Array.from(data).map(c => c.charCodeAt(0).toString(16)).join(' ');
+            console.log(`[SSH DEBUG] Key pressed: "${data}" (${charCodes})`);
+            
+            // Show the debug output in terminal too
+            if (data.charCodeAt(0) === 13) { // Enter key (newline)
+              setTimeout(() => {
+                xtermRef.current.write(`\n\r\x1b[33m[DEBUG] Enter key\x1b[0m\r\n`);
+              }, 10);
+            }
+          }
+        };
+      }
     } else {
       xtermRef.current.writeln('\x1b[31mWebSocket connection is not available\x1b[0m');
       displayPrompt();

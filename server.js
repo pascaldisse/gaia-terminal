@@ -75,9 +75,11 @@ wss.on('connection', (ws) => {
               
               // Forward SSH data to WebSocket
               stream.on('data', (data) => {
+                const dataStr = data.toString('utf8');
+                console.log(`[SSH SERVER] Received data from SSH server: "${dataStr.substring(0, 100)}${dataStr.length > 100 ? '...' : ''}"`);
                 ws.send(JSON.stringify({
                   type: 'data',
-                  data: data.toString('utf8')
+                  data: dataStr
                 }));
               });
               
@@ -130,9 +132,12 @@ wss.on('connection', (ws) => {
         case 'data':
           // Send data to SSH server
           const connection = sshConnections.get(ws);
+          console.log(`[SSH DATA] Received data from client: "${data.data}" (${Buffer.from(data.data).toString('hex')})`);
           if (connection && connection.stream) {
+            console.log('[SSH DATA] Forwarding to SSH stream');
             connection.stream.write(data.data);
           } else {
+            console.error('[SSH DATA] No active SSH connection or stream');
             ws.send(JSON.stringify({
               type: 'error',
               message: 'No active SSH connection'
