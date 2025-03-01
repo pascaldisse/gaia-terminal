@@ -5,6 +5,7 @@ import { Client } from 'ssh2';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import fs from 'fs';
+import mime from 'mime-types';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -14,8 +15,38 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({ noServer: true });
 
-// Serve static files from the dist directory
-app.use(express.static(join(__dirname, 'dist')));
+// Serve static files from the root directory and src
+app.use(express.static(__dirname));
+
+// Custom middleware for JSX files
+app.use('/src', (req, res, next) => {
+  const filePath = join(__dirname, 'src', req.path);
+  
+  if (req.path.endsWith('.jsx')) {
+    console.log(`[DEBUG] Serving JSX file: ${req.path}`);
+    
+    fs.readFile(filePath, (err, data) => {
+      if (err) {
+        console.error(`[ERROR] Failed to read JSX file: ${err.message}`);
+        return next(err);
+      }
+      
+      res.set('Content-Type', 'application/javascript');
+      res.send(data);
+    });
+  } else {
+    next();
+  }
+});
+
+// Serve other static files from src directory
+app.use('/src', express.static(join(__dirname, 'src')));
+
+// Add before your routes
+app.use((req, res, next) => {
+  console.log(`[REQUEST] ${req.method} ${req.url}`);
+  next();
+});
 
 // API routes
 app.get('/api/check', (req, res) => {
@@ -24,7 +55,15 @@ app.get('/api/check', (req, res) => {
 
 // Fallback for SPA - all unmatched routes serve index.html
 app.get('*', (req, res) => {
-  res.sendFile(join(__dirname, 'dist', 'index.html'));
+  res.sendFile(join(__dirname, 'index.html'));
+});
+
+// Add after your response is sent
+app.use((req, res, next) => {
+  res.on('finish', () => {
+    console.log(`[RESPONSE] ${req.method} ${req.url} - ${res.statusCode} ${res.getHeader('Content-Type')}`);
+  });
+  next();
 });
 
 // Handle WebSocket connections
@@ -142,4 +181,23 @@ server.on('upgrade', (request, socket, head) => {
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`Access the application at: http://localhost:${PORT}`);
+  console.log(`WebSocket endpoint available at: ws://localhost:${PORT}/ws/ssh`);
+});
+
+// Global error handling
+server.on('error', (error) => {
+  console.error(`[SERVER ERROR] ${error.message}`);
+  if (error.code === 'EADDRINUSE') {
+    console.error(`[SERVER ERROR] Port ${PORT} is already in use. Try using a different port.`);
+  }
+});
+
+process.on('uncaughtException', (error) => {
+  console.error(`[UNCAUGHT EXCEPTION] ${error.message}`);
+  console.error(error.stack);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[UNHANDLED REJECTION] Promise rejection was unhandled:', reason);
 });

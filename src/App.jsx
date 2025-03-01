@@ -29,14 +29,18 @@ const MainContent = styled.main`
 function App() {
   const [showSettings, setShowSettings] = useState(false)
   const [showSSHModal, setShowSSHModal] = useState(false)
-  const { activeTab, tabs, addTab } = useTerminalStore()
+  const { activeTab, tabs, addTab, initSavedConnections } = useTerminalStore()
   
+  // Initialize application state
   useEffect(() => {
+    // Initialize any saved SSH connections
+    initSavedConnections()
+    
     // If no tabs exist, create a default one
     if (tabs.length === 0) {
       addTab('Local Terminal')
     }
-  }, [tabs, addTab])
+  }, [tabs, addTab, initSavedConnections])
 
   return (
     <AppContainer>

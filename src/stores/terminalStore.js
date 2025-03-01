@@ -1,7 +1,21 @@
 import { create } from 'zustand'
-import { nanoid } from 'nanoid'
+import { nanoid } from 'nanoid/non-secure'
+import { persist } from 'zustand/middleware'
 
-export const useTerminalStore = create((set, get) => ({
+// Load saved connections from localStorage
+const loadSavedConnections = () => {
+  try {
+    const savedConnections = localStorage.getItem('gaia-terminal-connections')
+    return savedConnections ? JSON.parse(savedConnections) : {}
+  } catch (error) {
+    console.error('Failed to load saved connections:', error)
+    return {}
+  }
+}
+
+export const useTerminalStore = create(
+  persist(
+    (set, get) => ({
   // Terminal tabs
   tabs: [],
   activeTab: null,
@@ -220,5 +234,29 @@ export const useTerminalStore = create((set, get) => ({
       const { [tabId]: _, ...activeConns } = state.activeConnections
       return { activeConnections: activeConns }
     })
+  },
+  
+  // Initialize with saved connections
+  initSavedConnections: () => {
+    const savedConnections = loadSavedConnections()
+    if (Object.keys(savedConnections).length > 0) {
+      set({ sshConnections: savedConnections })
+    }
+  },
+  
+  // Get saved named connections only
+  getSavedNamedConnections: () => {
+    return Object.values(get().sshConnections).filter(conn => conn.name && conn.name.trim() !== '')
   }
+}), 
+{
+  name: 'gaia-terminal-store',
+  partialize: (state) => ({
+    sshConnections: Object.fromEntries(
+      Object.entries(state.sshConnections).filter(([_, conn]) => conn.name && conn.name.trim() !== '')
+    ),
+    fontSize: state.fontSize,
+    fontFamily: state.fontFamily,
+    theme: state.theme
+  })
 }))
