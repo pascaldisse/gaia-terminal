@@ -19,15 +19,25 @@ const TerminalContainer = styled.div`
   .xterm-viewport {
     scrollbar-width: thin;
     scrollbar-color: #6272a4 #282a36;
+    transition: opacity 0.3s ease;
+    opacity: 0.3;
+    
+    &:hover {
+      opacity: 1;
+    }
     
     &::-webkit-scrollbar {
-      width: 8px;
-      height: 8px;
+      width: 10px;  /* Slightly wider for better usability */
+      height: 10px;
     }
     
     &::-webkit-scrollbar-thumb {
       background-color: #6272a4;
       border-radius: 4px;
+      
+      &:hover {
+        background-color: #bd93f9;  /* Highlight on hover */
+      }
     }
     
     &::-webkit-scrollbar-track {
@@ -287,14 +297,16 @@ const Terminal = () => {
             commandHistory.length - 1 : 
             Math.max(0, localHistoryIndex - 1);
           
-          // Clear current line
-          term.write('\r\x1b[K');
-          displayPromptString();
+          // Clear current line - this is the key to proper history navigation
+          term.write('\r');          // Move cursor to beginning of line
+          term.write('\x1b[K');      // Clear line from cursor to end (K = Erase in Line)
+          displayPromptString();     // Redisplay prompt
           
           // Display previous command
           const prevCommand = commandHistory[index];
-          term.write(prevCommand);
+          term.write(prevCommand);   // Write the command after prompt
           
+          // Update state to reflect the current command
           currentLine = prevCommand;
           cursorPosition = prevCommand.length;
           
@@ -309,19 +321,21 @@ const Terminal = () => {
           const index = localHistoryIndex < commandHistory.length - 1 ? 
             localHistoryIndex + 1 : -1;
           
-          // Clear current line
-          term.write('\r\x1b[K');
-          displayPromptString();
+          // Clear current line - same technique as for up arrow
+          term.write('\r');          // Move cursor to beginning of line
+          term.write('\x1b[K');      // Clear line from cursor to end
+          displayPromptString();     // Redisplay prompt
           
           if (index === -1) {
-            // Clear command
+            // We've reached beyond the end of history, show empty command
             currentLine = '';
             cursorPosition = 0;
           } else {
-            // Display next command
+            // Display next command from history
             const nextCommand = commandHistory[index];
             term.write(nextCommand);
             
+            // Update state
             currentLine = nextCommand;
             cursorPosition = nextCommand.length;
           }
@@ -621,6 +635,27 @@ const Terminal = () => {
   const passwordRef = useRef('');
   const passwordTimeoutRef = useRef(null);
   
+  // SSH password cache for returning to previously connected servers
+  const [sshPasswordCache, setSshPasswordCache] = useState(() => {
+    try {
+      // Load saved passwords from localStorage
+      const savedPasswords = localStorage.getItem('sshPasswordCache');
+      return savedPasswords ? JSON.parse(savedPasswords) : {};
+    } catch (err) {
+      console.error('Error loading SSH password cache:', err);
+      return {};
+    }
+  });
+  
+  // Save password to cache whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('sshPasswordCache', JSON.stringify(sshPasswordCache));
+    } catch (err) {
+      console.error('Error saving SSH password cache:', err);
+    }
+  }, [sshPasswordCache]);
+  
   // Set up effect for handling password collection
   useEffect(() => {
     if (!collectingPassword) return;
@@ -833,6 +868,15 @@ const Terminal = () => {
       return;
     }
     
+    // Create a unique key for this connection to store password in cache
+    const connectionKey = `${sshConnectionParams.username}@${sshConnectionParams.hostname}:${sshConnectionParams.port}`;
+    
+    // Save the password in our cache for future connections
+    setSshPasswordCache(prevCache => ({
+      ...prevCache,
+      [connectionKey]: password
+    }));
+    
     // Enable debug mode for SSH - logs all keypresses to the terminal
     const debugSsh = true;
     
@@ -883,11 +927,19 @@ const Terminal = () => {
     }
   };
   
-  // Add a helper function to scroll terminal to bottom
+  // Add a helper function to scroll terminal to bottom with padding
   const scrollTerminalToBottom = () => {
     if (xtermRef.current) {
       setTimeout(() => {
+        // First scroll all the way to the bottom to ensure we can see latest content
         xtermRef.current.scrollToBottom();
+        
+        // Then scroll up a bit to ensure there's space between cursor and bottom
+        // The scrollLines method scrolls by number of lines (positive = down, negative = up)
+        if (xtermRef.current.rows > 3) {
+          // Leave 2 lines of spacing at the bottom for better cursor visibility
+          xtermRef.current.scrollLines(-2);
+        }
       }, 50);
     }
   };
@@ -933,24 +985,38 @@ const Terminal = () => {
       }
     }
     
+    // Create a unique key for this connection in the password cache
+    const connectionKey = `${username}@${hostname}:${port}`;
+    
     // Output connection message
     xtermRef.current.writeln(`\x1b[34mConnecting to ${username}@${hostname}:${port}...\x1b[0m`);
     
-    // Prompt for password
-    xtermRef.current.write('\x1b[33mPassword: \x1b[0m');
-    
-    // Save SSH connection parameters for when password is submitted
-    setSshConnectionParams({ username, hostname, port });
-    
-    // Enable password collection mode to show the hidden input field
-    setCollectingPassword(true);
-    
-    // Focus the hidden input field
-    setTimeout(() => {
-      if (hiddenInputRef.current) {
-        hiddenInputRef.current.focus();
-      }
-    }, 50);
+    // Check if we have a saved password for this connection
+    if (sshPasswordCache[connectionKey]) {
+      xtermRef.current.writeln('\x1b[32mUsing cached credentials\x1b[0m');
+      
+      // Save connection parameters
+      setSshConnectionParams({ username, hostname, port });
+      
+      // Use the cached password directly
+      submitSSHPassword(sshPasswordCache[connectionKey]);
+    } else {
+      // No cached password, prompt for input
+      xtermRef.current.write('\x1b[33mPassword: \x1b[0m');
+      
+      // Save SSH connection parameters for when password is submitted
+      setSshConnectionParams({ username, hostname, port });
+      
+      // Enable password collection mode to show the hidden input field
+      setCollectingPassword(true);
+      
+      // Focus the hidden input field
+      setTimeout(() => {
+        if (hiddenInputRef.current) {
+          hiddenInputRef.current.focus();
+        }
+      }, 50);
+    }
   };
 
   return (
