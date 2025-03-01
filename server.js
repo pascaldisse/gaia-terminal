@@ -84,7 +84,14 @@ wss.on('connection', (ws) => {
         sshClient.on('ready', () => {
           ws.send(JSON.stringify({ type: 'connected' }));
           
-          sshClient.shell((err, _stream) => {
+          // Get terminal dimensions from the connection request
+          const termOptions = {
+            rows: data.rows || 24,
+            cols: data.cols || 80
+          };
+          console.log(`[SSH Server] Opening shell with dimensions: ${termOptions.rows}x${termOptions.cols}`);
+          
+          sshClient.shell(termOptions, (err, _stream) => {
             if (err) {
               ws.send(JSON.stringify({ 
                 type: 'error', 
@@ -96,9 +103,13 @@ wss.on('connection', (ws) => {
             stream = _stream;
             
             stream.on('data', (data) => {
+              const dataStr = data.toString('utf-8');
+              console.log(`[SSH Response] Received from server: ${dataStr.length > 100 ? 
+                dataStr.substring(0, 100) + '...' : JSON.stringify(dataStr)}`);
+              
               ws.send(JSON.stringify({
                 type: 'data',
-                data: data.toString('utf-8')
+                data: dataStr
               }));
             });
             
@@ -141,8 +152,19 @@ wss.on('connection', (ws) => {
         
         sshClient.connect(connectionOptions);
       } else if (data.type === 'data' && stream) {
-        // Send data to SSH stream
-        stream.write(data.data);
+        // Send data to SSH stream with logging
+        console.log(`[SSH Data] Sending to stream: ${JSON.stringify(data.data)}`)
+        
+        // Ensure proper data handling
+        try {
+          stream.write(data.data);
+        } catch (error) {
+          console.error(`[SSH Error] Failed to write to stream: ${error.message}`);
+          ws.send(JSON.stringify({ 
+            type: 'error', 
+            message: `Stream write error: ${error.message}`
+          }));
+        }
       } else if (data.type === 'resize' && stream) {
         // Resize terminal
         stream.setWindow(data.rows, data.cols);

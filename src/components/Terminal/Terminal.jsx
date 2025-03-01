@@ -108,7 +108,20 @@ function Terminal({ id, visible }) {
 
     // Handle window resize
     const handleResize = () => {
-      fitAddonRef.current?.fit()
+      if (fitAddonRef.current) {
+        fitAddonRef.current.fit()
+        
+        // Send terminal dimensions to SSH server if connected
+        if (sshActiveRef.current && wsRef.current && xtermRef.current) {
+          const { rows, cols } = xtermRef.current
+          console.log(`[SSH Resize] Rows: ${rows}, Cols: ${cols}`)
+          wsRef.current.send(JSON.stringify({
+            type: 'resize',
+            rows,
+            cols
+          }))
+        }
+      }
     }
     window.addEventListener('resize', handleResize)
 
@@ -214,9 +227,15 @@ function Terminal({ id, visible }) {
     const ws = new WebSocket(`${protocol}//${window.location.host}/ws/ssh`)
     
     ws.onopen = () => {
+      // Get current terminal dimensions
+      const { rows, cols } = xtermRef.current
+      console.log(`[SSH Connect] Initial dimensions - Rows: ${rows}, Cols: ${cols}`)
+      
       ws.send(JSON.stringify({
         type: 'connect',
-        ...connection
+        ...connection,
+        rows,
+        cols
       }))
     }
     
@@ -296,10 +315,9 @@ function Terminal({ id, visible }) {
     
     // Check if we're in SSH mode
     if (sshActiveRef.current && wsRef.current) {
-      wsRef.current.send(JSON.stringify({
-        type: 'data',
-        data: command + '\r'
-      }))
+      // Don't send anything - the Enter key will already have sent '\r'
+      // We just store the command in history but don't send it again
+      console.log(`[SSH Command] Command "${command}" already sent via key handler`)
       return
     }
     
@@ -397,18 +415,92 @@ function Terminal({ id, visible }) {
     if (!xtermRef.current || !ready) return
     
     const term = xtermRef.current
+    const keyHandled = new Set() // Track keys that have been handled
     
     const handleKeyInput = (event) => {
       // Skip if not focused
       if (!visible) return
       
+      // Create a unique identifier for this key event to prevent duplicates
+      const eventId = `${event.timeStamp}-${event.key}`
+      
+      // Skip if we've already handled this exact key event
+      if (keyHandled.has(eventId)) {
+        console.log(`[SSH Key Skip] Duplicate key event: ${event.key}`)
+        return
+      }
+      
+      // Mark this event as handled
+      keyHandled.add(eventId)
+      
+      // Clean up the set after a short delay to prevent memory leaks
+      setTimeout(() => {
+        keyHandled.delete(eventId)
+      }, 100)
+      
       // Check if we're in SSH mode
       if (sshActiveRef.current && wsRef.current) {
-        // Pass all keypresses directly to SSH connection
-        wsRef.current.send(JSON.stringify({
-          type: 'data',
-          data: event.key === 'Enter' ? '\r' : event.key
-        }))
+        // Pass keypresses to SSH connection with logging
+        console.log(`[SSH Key Input] Key: ${event.key}, Ctrl: ${event.ctrlKey}, Alt: ${event.altKey}`)
+        
+        // Handle special keys and control sequences
+        if (event.ctrlKey) {
+          // Handle Ctrl key combinations (important for terminal applications)
+          const ctrlChar = String.fromCharCode(event.key.toUpperCase().charCodeAt(0) - 64);
+          console.log(`[SSH Control] Sending Ctrl+${event.key} as: ${ctrlChar.charCodeAt(0)}`)
+          wsRef.current.send(JSON.stringify({
+            type: 'data',
+            data: ctrlChar
+          }))
+        } else if (event.key === 'Enter') {
+          wsRef.current.send(JSON.stringify({
+            type: 'data',
+            data: '\r'
+          }))
+        } else if (event.key === 'Backspace') {
+          wsRef.current.send(JSON.stringify({
+            type: 'data',
+            data: '\b'
+          }))
+        } else if (event.key === 'Tab') {
+          event.preventDefault()
+          wsRef.current.send(JSON.stringify({
+            type: 'data',
+            data: '\t'
+          }))
+        } else if (event.key === 'Escape') {
+          wsRef.current.send(JSON.stringify({
+            type: 'data',
+            data: '\x1b'
+          }))
+        } else if (event.key === 'ArrowUp') {
+          wsRef.current.send(JSON.stringify({
+            type: 'data',
+            data: '\x1b[A'
+          }))
+        } else if (event.key === 'ArrowDown') {
+          wsRef.current.send(JSON.stringify({
+            type: 'data',
+            data: '\x1b[B'
+          }))
+        } else if (event.key === 'ArrowRight') {
+          wsRef.current.send(JSON.stringify({
+            type: 'data',
+            data: '\x1b[C'
+          }))
+        } else if (event.key === 'ArrowLeft') {
+          wsRef.current.send(JSON.stringify({
+            type: 'data',
+            data: '\x1b[D'
+          }))
+        } else if (event.key.length === 1) {
+          // Only send actual characters (not function keys, etc)
+          wsRef.current.send(JSON.stringify({
+            type: 'data',
+            data: event.key
+          }))
+        }
+        
         return
       }
 
@@ -488,9 +580,22 @@ function Terminal({ id, visible }) {
       }
     }
     
-    // Use the terminal's key event handler
-    term.onKey(({ key, domEvent }) => {
-      handleKeyInput(domEvent)
+    // Use direct DOM key event instead of terminal's key event handler
+    // This gives us more control over event handling
+    const domKeyHandler = (domEvent) => {
+      // Only handle keyboard events when this terminal is visible
+      if (visible) {
+        handleKeyInput(domEvent)
+      }
+    }
+    
+    // Add our own key event listener to the document
+    document.addEventListener('keydown', domKeyHandler)
+    
+    // Remove xterm's built-in key handler
+    term.attachCustomKeyEventHandler(() => {
+      // Return false for all keys when in SSH mode to prevent xterm handling
+      return !sshActiveRef.current
     })
 
     // Focus terminal on click
@@ -509,8 +614,8 @@ function Terminal({ id, visible }) {
     }
 
     return () => {
-      // No specific cleanup needed for the key handlers
-      // as they're attached to the terminal instance
+      // Clean up event listeners
+      document.removeEventListener('keydown', domKeyHandler)
     }
   }, [id, visible, ready, processCommand, getPreviousCommand, getNextCommand, resetHistoryIndex, renderPrompt])
 
