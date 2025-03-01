@@ -60,8 +60,8 @@ wss.on('connection', (ws) => {
               message: `Connected to ${data.host} as ${data.username}`
             }));
             
-            // Create a new shell session
-            sshClient.shell((err, stream) => {
+            // Create a new shell session with reasonable defaults for terminal size
+            sshClient.shell({ term: 'xterm-256color', cols: 80, rows: 24 }, (err, stream) => {
               if (err) {
                 ws.send(JSON.stringify({ 
                   type: 'error',

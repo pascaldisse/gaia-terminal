@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Terminal as XTerm } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
+import { SearchAddon } from '@xterm/addon-search';
 import styled from 'styled-components';
 import '@xterm/xterm/css/xterm.css';
 
@@ -12,6 +13,32 @@ const TerminalContainer = styled.div`
   border-radius: 6px;
   overflow: hidden;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  position: relative; /* Ensure proper positioning for scrollbar elements */
+  
+  /* Improve xterm scrollbar appearance */
+  .xterm-viewport {
+    scrollbar-width: thin;
+    scrollbar-color: #6272a4 #282a36;
+    
+    &::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    
+    &::-webkit-scrollbar-thumb {
+      background-color: #6272a4;
+      border-radius: 4px;
+    }
+    
+    &::-webkit-scrollbar-track {
+      background-color: #282a36;
+    }
+  }
+  
+  /* Make sure the cursor is always visible */
+  .xterm-cursor-layer {
+    z-index: 5;
+  }
 `;
 
 // Create a modal component for password input
@@ -72,6 +99,8 @@ const Terminal = () => {
       lineHeight: 1.2,
       cursorBlink: true,
       convertEol: true,
+      scrollback: 5000, // Increase scrollback buffer for SSH sessions
+      fastScrollModifier: 'alt', // Allow fast scrolling with Alt key
       theme: {
         background: '#1e1e2e',
         foreground: '#f8f8f2',
@@ -103,6 +132,10 @@ const Terminal = () => {
     // Add web links addon
     const webLinksAddon = new WebLinksAddon();
     term.loadAddon(webLinksAddon);
+    
+    // Add search addon for Ctrl+F functionality
+    const searchAddon = new SearchAddon();
+    term.loadAddon(searchAddon);
     
     // Store references
     xtermRef.current = term;
@@ -658,6 +691,11 @@ const Terminal = () => {
           if (now - lastResponseTime > 5000) {
             console.warn('[SSH HEALTH] No recent SSH server response detected');
           }
+          
+          // Ensure the terminal is properly scrolled to the bottom to show the cursor
+          if (xtermRef.current) {
+            xtermRef.current.scrollToBottom();
+          }
         }
       }, 10000);
       
@@ -697,6 +735,8 @@ const Terminal = () => {
               console.log('[SSH CLIENT] Connection established');
               xtermRef.current.writeln(`\x1b[32m${message.message}\x1b[0m`);
               setIsSSHActive(true);
+              // Ensure terminal is scrolled to bottom when connection is established
+              scrollTerminalToBottom();
             }
             break;
             
@@ -742,6 +782,9 @@ const Terminal = () => {
               
               // Write the data to the terminal
               xtermRef.current.write(message.data);
+              
+              // Ensure terminal is scrolled to bottom to show the cursor
+              scrollTerminalToBottom();
             }
             break;
         }
@@ -837,6 +880,15 @@ const Terminal = () => {
     } else {
       xtermRef.current.writeln('\x1b[31mWebSocket connection is not available\x1b[0m');
       displayPrompt();
+    }
+  };
+  
+  // Add a helper function to scroll terminal to bottom
+  const scrollTerminalToBottom = () => {
+    if (xtermRef.current) {
+      setTimeout(() => {
+        xtermRef.current.scrollToBottom();
+      }, 50);
     }
   };
   
