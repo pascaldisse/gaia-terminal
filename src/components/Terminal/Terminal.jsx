@@ -949,13 +949,30 @@ const Terminal = ({ id }) => {
   useEffect(() => {
     if (!collectingPassword) return;
     
+    // Extract displayPrompt to a local function to avoid dependency issues
+    const showPrompt = () => {
+      if (xtermRef.current) {
+        xtermRef.current.write('\r\n');
+        
+        // Get the multi-line prompt
+        const { topLine, middleLine, bottomLine } = generateSpaceshipPrompt();
+        
+        // Write each line of the prompt
+        xtermRef.current.write('\r\n' + topLine + '\r\n');
+        if (middleLine) {
+          xtermRef.current.write(middleLine);
+        }
+        xtermRef.current.write(bottomLine);
+      }
+    };
+    
     // Set up a timeout to cancel password collection if it takes too long
     const timeoutId = setTimeout(() => {
       if (collectingPassword) {
         setCollectingPassword(false);
         if (xtermRef.current) {
           xtermRef.current.writeln('\r\n\x1b[31mPassword entry timed out\x1b[0m');
-          displayPrompt();
+          showPrompt();
         }
       }
     }, 60000); // 1 minute timeout
@@ -967,7 +984,7 @@ const Terminal = ({ id }) => {
         setCollectingPassword(false);
         if (xtermRef.current) {
           xtermRef.current.writeln('\r\n\x1b[31mPassword entry cancelled\x1b[0m');
-          displayPrompt();
+          showPrompt();
         }
       }
     };
@@ -994,154 +1011,145 @@ const Terminal = ({ id }) => {
     // Track when SSH becomes active or inactive
     console.log(`[SSH STATUS] isSSHActive changed to: ${isSSHActive}`);
     
-    if (isSSHActive) {
-      // Utility function to dump all collected debug logs
-      const dumpLogs = () => {
-        if (window.sshInputLog && window.sshInputLog.length > 0) {
-          console.log(`[SSH DEBUG] Input log (${window.sshInputLog.length} entries):`);
-          console.table(window.sshInputLog);
-        }
-      };
+    // This effect doesn't need to do anything if isSSHActive is false
+    if (!isSSHActive) return;
       
-      // Create an interval to periodically check if terminal is still responsive
-      const checkInterval = setInterval(() => {
-        if (isSSHActive && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-          console.log('[SSH HEALTH] Checking SSH connection health...');
-          
-          // Add a handler to detect connection problems by measuring response time
-          const lastResponseTime = window.lastSshResponse || 0;
-          const now = Date.now();
-          
-          if (now - lastResponseTime > 5000) {
-            console.warn('[SSH HEALTH] No recent SSH server response detected');
-          }
-          
-          // Ensure the terminal is properly scrolled to the bottom to show the cursor
-          if (xtermRef.current) {
-            xtermRef.current.scrollToBottom();
-          }
+    // Create an interval to periodically check if terminal is still responsive
+    const checkInterval = setInterval(() => {
+      if (isSSHActive && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        console.log('[SSH HEALTH] Checking SSH connection health...');
+        
+        // Add a handler to detect connection problems by measuring response time
+        const lastResponseTime = window.lastSshResponse || 0;
+        const now = Date.now();
+        
+        if (now - lastResponseTime > 5000) {
+          console.warn('[SSH HEALTH] No recent SSH server response detected');
         }
-      }, 10000);
+        
+        // Ensure the terminal is properly scrolled to the bottom to show the cursor
+        if (xtermRef.current) {
+          xtermRef.current.scrollToBottom();
+        }
+      }
+    }, 10000);
+    
+    // Return cleanup function
+    return () => {
+      clearInterval(checkInterval);
       
-      // Return cleanup function
-      return () => {
-        clearInterval(checkInterval);
-        // Dump logs when SSH session ends for analysis
-        dumpLogs();
-      };
-    }
+      // Dump logs when SSH session ends for analysis
+      if (window.sshInputLog && window.sshInputLog.length > 0) {
+        console.log(`[SSH DEBUG] Input log (${window.sshInputLog.length} entries):`);
+        console.table(window.sshInputLog);
+      }
+    };
   }, [isSSHActive]);
   
-  // Create WebSocket connection
+  // Create WebSocket connection - this is now only a stub since we inlined the function
   const createWSConnection = () => {
-    // Get location protocol, hostname and port
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
-    const wsUrl = `${wsProtocol}${window.location.host}`;
-    
-    if (wsRef.current) {
-      wsRef.current.close();
-    }
-    
-    wsRef.current = new WebSocket(wsUrl);
-    
-    wsRef.current.onopen = () => {
-      console.log('WebSocket connection established');
-    };
-    
-    wsRef.current.onmessage = (event) => {
-      try {
-        const message = JSON.parse(event.data);
-        console.log(`[WS CLIENT] Received message type: ${message.type}`);
-        
-        switch (message.type) {
-          case 'connected':
-            if (xtermRef.current) {
-              console.log('[SSH CLIENT] Connection established');
-              xtermRef.current.writeln(`\x1b[32m${message.message}\x1b[0m`);
-              setIsSSHActive(true);
-              // Ensure terminal is scrolled to bottom when connection is established
-              scrollTerminalToBottom();
-            }
-            break;
-            
-          case 'disconnected':
-            if (xtermRef.current) {
-              console.log('[SSH CLIENT] Disconnected from server');
-              xtermRef.current.writeln(`\x1b[33m${message.message}\x1b[0m`);
-              setIsSSHActive(false);
-              // Make sure we're not collecting password anymore
-              setCollectingPassword(false);
-              displayPrompt();
-            }
-            break;
-            
-          case 'error':
-            if (xtermRef.current) {
-              console.error(`[SSH CLIENT] Error: ${message.message}`);
-              xtermRef.current.writeln(`\x1b[31mError: ${message.message}\x1b[0m`);
-              setIsSSHActive(false);
-              // Make sure we're not collecting password anymore
-              setCollectingPassword(false);
-              displayPrompt();
-            }
-            break;
-            
-          case 'data':
-            if (xtermRef.current) {
-              // Track last response time for health checks
-              window.lastSshResponse = Date.now();
-              
-              // Log received data from server
-              console.log(`[SSH CLIENT] Received data from server: "${message.data.substring(0, 50).replace(/\r/g, '\\r').replace(/\n/g, '\\n')}${message.data.length > 50 ? '...' : ''}"`);
-              
-              // Track if this looks like a prompt - helps debug when server is expecting input
-              if (message.data.match(/[#\$] *$/)) {
-                console.log('[SSH CLIENT] 🔍 Detected prompt in response, server is waiting for input');
-              }
-              
-              // Check if we're receiving a bracketed paste sequence or other special sequence
-              if (message.data.includes('\x1b[?2004h')) {
-                console.log('[SSH CLIENT] 🔍 Detected bracketed paste mode (terminal is ready for input)');
-              }
-              
-              // Write the data to the terminal
-              xtermRef.current.write(message.data);
-              
-              // Ensure terminal is scrolled to bottom to show the cursor
-              scrollTerminalToBottom();
-            }
-            break;
-        }
-      } catch (err) {
-        console.error('Error processing WebSocket message:', err);
-        if (xtermRef.current) {
-          xtermRef.current.writeln(`\x1b[31mError: ${err.message}\x1b[0m`);
-        }
-      }
-    };
-    
-    wsRef.current.onclose = () => {
-      console.log('WebSocket connection closed');
-      if (xtermRef.current && isSSHActive) {
-        xtermRef.current.writeln('\x1b[33mConnection to SSH server closed\x1b[0m');
-        setIsSSHActive(false);
-        setCollectingPassword(false);
-        displayPrompt();
-      }
-    };
-    
-    wsRef.current.onerror = (err) => {
-      console.error('WebSocket error:', err);
-      if (xtermRef.current) {
-        xtermRef.current.writeln('\x1b[31mWebSocket error occurred\x1b[0m');
-      }
-    };
+    // Implementation moved to the useEffect hook to avoid hook dependency issues
+    console.log('WebSocket connection initialization moved to useEffect hook');
   };
   
   // Initialize WebSocket on component mount
   useEffect(() => {
-    createWSConnection();
+    // Define the connection function inline to avoid dependency issues
+    const initializeWebSocket = () => {
+      // Get location protocol, hostname and port
+      const wsProtocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+      const wsUrl = `${wsProtocol}${window.location.host}`;
+      
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+      
+      wsRef.current = new WebSocket(wsUrl);
+      
+      wsRef.current.onopen = () => {
+        console.log('WebSocket connection established');
+      };
+      
+      wsRef.current.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          console.log(`[WS CLIENT] Received message type: ${message.type}`);
+          
+          switch (message.type) {
+            case 'connected':
+              if (xtermRef.current) {
+                console.log('[SSH CLIENT] Connection established');
+                xtermRef.current.writeln(`\x1b[32m${message.message}\x1b[0m`);
+                setIsSSHActive(true);
+                // Ensure terminal is scrolled to bottom when connection is established
+                if (xtermRef.current) {
+                  setTimeout(() => {
+                    xtermRef.current.scrollToBottom();
+                  }, 50);
+                }
+              }
+              break;
+              
+            case 'disconnected':
+              if (xtermRef.current) {
+                console.log('[SSH CLIENT] Disconnected from server');
+                xtermRef.current.writeln(`\x1b[33m${message.message}\x1b[0m`);
+                setIsSSHActive(false);
+                setCollectingPassword(false);
+                displayPrompt();
+              }
+              break;
+              
+            case 'error':
+              if (xtermRef.current) {
+                console.error(`[SSH CLIENT] Error: ${message.message}`);
+                xtermRef.current.writeln(`\x1b[31mError: ${message.message}\x1b[0m`);
+                setIsSSHActive(false);
+                setCollectingPassword(false);
+                displayPrompt();
+              }
+              break;
+              
+            case 'data':
+              if (xtermRef.current) {
+                // Track last response time for health checks
+                window.lastSshResponse = Date.now();
+                
+                // Write the data to the terminal
+                xtermRef.current.write(message.data);
+              }
+              break;
+          }
+        } catch (err) {
+          console.error('Error processing WebSocket message:', err);
+          if (xtermRef.current) {
+            xtermRef.current.writeln(`\x1b[31mError: ${err.message}\x1b[0m`);
+          }
+        }
+      };
+      
+      wsRef.current.onclose = () => {
+        console.log('WebSocket connection closed');
+        if (xtermRef.current && isSSHActive) {
+          xtermRef.current.writeln('\x1b[33mConnection to SSH server closed\x1b[0m');
+          setIsSSHActive(false);
+          setCollectingPassword(false);
+          displayPrompt();
+        }
+      };
+      
+      wsRef.current.onerror = (err) => {
+        console.error('WebSocket error:', err);
+        if (xtermRef.current) {
+          xtermRef.current.writeln('\x1b[31mWebSocket error occurred\x1b[0m');
+        }
+      };
+    };
     
+    // Initialize the WebSocket connection
+    initializeWebSocket();
+    
+    // Cleanup function
     return () => {
       if (wsRef.current) {
         wsRef.current.close();
@@ -1152,8 +1160,17 @@ const Terminal = ({ id }) => {
   // Function to submit SSH password after it's been collected
   const submitSSHPassword = (password) => {
     if (!wsRef.current || !sshConnectionParams) {
-      xtermRef.current.writeln('\x1b[31mError: Connection parameters lost\x1b[0m');
-      displayPrompt();
+      if (xtermRef.current) {
+        xtermRef.current.writeln('\x1b[31mError: Connection parameters lost\x1b[0m');
+        
+        // Inline displayPrompt to avoid dependency issues
+        const { topLine, middleLine, bottomLine } = generateSpaceshipPrompt();
+        xtermRef.current.write('\r\n' + topLine + '\r\n');
+        if (middleLine) {
+          xtermRef.current.write(middleLine);
+        }
+        xtermRef.current.write(bottomLine);
+      }
       return;
     }
     
@@ -1168,6 +1185,8 @@ const Terminal = ({ id }) => {
     
     // Enable debug mode for SSH - logs all keypresses to the terminal
     const debugSsh = true;
+    
+    if (!xtermRef.current) return;
     
     // Submit the SSH connection
     xtermRef.current.writeln(''); // Add a line break after password input
@@ -1210,27 +1229,20 @@ const Terminal = ({ id }) => {
           }
         };
       }
-    } else {
+    } else if (xtermRef.current) {
       xtermRef.current.writeln('\x1b[31mWebSocket connection is not available\x1b[0m');
-      displayPrompt();
+      
+      // Inline displayPrompt to avoid dependency issues
+      const { topLine, middleLine, bottomLine } = generateSpaceshipPrompt();
+      xtermRef.current.write('\r\n' + topLine + '\r\n');
+      if (middleLine) {
+        xtermRef.current.write(middleLine);
+      }
+      xtermRef.current.write(bottomLine);
     }
   };
   
-  // Add a helper function to scroll terminal to bottom with padding
-  const scrollTerminalToBottom = () => {
-    if (xtermRef.current) {
-      setTimeout(() => {
-        // First scroll all the way to the bottom to ensure we can see latest content
-        xtermRef.current.scrollToBottom();
-        
-        // Then scroll up a bit to ensure there's space between cursor and bottom
-        if (xtermRef.current.rows > 3) {
-          // Leave 2 lines of spacing at the bottom for better cursor visibility
-          xtermRef.current.scrollLines(-2);
-        }
-      }, 50);
-    }
-  };
+  // Inline this functionality where needed to avoid dependency issues
   
   // Handle SSH connection
   const connectSSH = (sshCommand) => {
@@ -1280,6 +1292,13 @@ const Terminal = ({ id }) => {
     xtermRef.current.writeln(`\x1b[1;38;5;105m┌─[SSH Connection]──────────────────────────┐\x1b[0m`);
     xtermRef.current.writeln(`\x1b[1;38;5;105m│\x1b[0m Connecting to \x1b[1;36m${username}@${hostname}:${port}\x1b[0m \x1b[1;38;5;105m│\x1b[0m`);
     xtermRef.current.writeln(`\x1b[1;38;5;105m└──────────────────────────────────────────┘\x1b[0m`);
+    
+    // Ensure terminal is scrolled to bottom
+    if (xtermRef.current) {
+      setTimeout(() => {
+        xtermRef.current.scrollToBottom();
+      }, 50);
+    }
     
     // Check if we have a saved password for this connection
     if (sshPasswordCache[connectionKey]) {
