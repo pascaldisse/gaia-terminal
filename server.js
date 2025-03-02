@@ -15,32 +15,20 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({ noServer: true });
 
-// Serve static files from the root directory and src
-app.use(express.static(__dirname));
+// Serve static files from the dist directory for built files
+app.use(express.static(join(__dirname, 'dist')));
 
-// Custom middleware for JSX files
-app.use('/src', (req, res, next) => {
-  const filePath = join(__dirname, 'src', req.path);
-  
-  if (req.path.endsWith('.jsx')) {
-    console.log(`[DEBUG] Serving JSX file: ${req.path}`);
-    
-    fs.readFile(filePath, (err, data) => {
-      if (err) {
-        console.error(`[ERROR] Failed to read JSX file: ${err.message}`);
-        return next(err);
-      }
-      
-      res.set('Content-Type', 'application/javascript');
-      res.send(data);
-    });
-  } else {
-    next();
-  }
+// Set MIME types for JavaScript modules
+app.use('*.js', (req, res, next) => {
+  res.set('Content-Type', 'application/javascript');
+  next();
 });
 
-// Serve other static files from src directory
-app.use('/src', express.static(join(__dirname, 'src')));
+// Set MIME types for CSS files
+app.use('*.css', (req, res, next) => {
+  res.set('Content-Type', 'text/css');
+  next();
+});
 
 // Add before your routes
 app.use((req, res, next) => {
@@ -55,7 +43,7 @@ app.get('/api/check', (req, res) => {
 
 // Fallback for SPA - all unmatched routes serve index.html
 app.get('*', (req, res) => {
-  res.sendFile(join(__dirname, 'index.html'));
+  res.sendFile(join(__dirname, 'dist', 'index.html'));
 });
 
 // Add after your response is sent
@@ -200,7 +188,7 @@ server.on('upgrade', (request, socket, head) => {
 });
 
 // Start server
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Access the application at: http://localhost:${PORT}`);
