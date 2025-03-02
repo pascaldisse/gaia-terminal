@@ -15,6 +15,11 @@ const AppContainer = styled.div`
   width: 100%;
   background-color: var(--bg-primary);
   color: var(--text-primary);
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
 `
 
 const MainContent = styled.main`
@@ -27,8 +32,14 @@ const MainContent = styled.main`
   
   @media (max-width: 600px) {
     /* Ensure the terminal has room on small screens */
-    height: calc(100% - 40px);
+    height: calc(100% - 80px); /* Account for toolbar and tabs */
+    flex: 1;
     min-height: 0;
+    position: absolute;
+    top: 80px;
+    left: 0;
+    right: 0;
+    bottom: 0;
   }
 `
 

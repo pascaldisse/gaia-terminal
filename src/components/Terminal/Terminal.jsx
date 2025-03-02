@@ -21,6 +21,10 @@ const TerminalContainer = styled.div`
   /* Adjust terminal padding on mobile */
   @media (max-width: 600px) {
     padding: 0.25rem;
+    height: 100%;
+    width: 100%;
+    bottom: 0;
+    position: absolute;
   }
 `
 
@@ -109,6 +113,13 @@ function Terminal({ id, visible }) {
       
       renderPrompt()
       setReady(true)
+      
+      // Additional fit for mobile devices with delayed layout
+      setTimeout(() => {
+        if (fitAddonRef.current) {
+          fitAddonRef.current.fit()
+        }
+      }, 500)
     }, 100)
 
     // Handle window resize
@@ -126,12 +137,26 @@ function Terminal({ id, visible }) {
             cols
           }))
         }
+        
+        // For mobile devices, do an additional fit after a slight delay
+        // This helps with virtual keyboard and orientation changes
+        setTimeout(() => {
+          if (fitAddonRef.current) {
+            fitAddonRef.current.fit()
+          }
+        }, 300)
       }
     }
     window.addEventListener('resize', handleResize)
+    
+    // Also trigger resize on orientation change for mobile
+    window.addEventListener('orientationchange', () => {
+      setTimeout(handleResize, 100)
+    })
 
     return () => {
       window.removeEventListener('resize', handleResize)
+      window.removeEventListener('orientationchange', handleResize)
       
       // Close WebSocket if open
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {

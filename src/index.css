@@ -35,6 +35,11 @@ html, body, #root {
   height: 100%;
   width: 100%;
   overflow: hidden;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
 }
 
 body {
@@ -45,10 +50,22 @@ body {
   min-height: 100vh;
 }
 
-/* Add meta viewport tag for mobile */
+/* Mobile-specific fixes */
 @media (max-width: 600px) {
+  html, body, #root {
+    height: 100%;
+    overflow: hidden;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+  
   body {
     min-height: -webkit-fill-available;
+    height: 100vh;
+    position: fixed;
   }
   
   html {
