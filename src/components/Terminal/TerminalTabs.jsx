@@ -10,6 +10,12 @@ const TabsContainer = styled.div`
   overflow-y: hidden;
   white-space: nowrap;
   border-bottom: 1px solid var(--bg-tertiary);
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+  
+  &::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+  }
 `
 
 const Tab = styled.div`
@@ -31,6 +37,11 @@ const Tab = styled.div`
   
   &:hover .close-button {
     opacity: 1;
+  }
+  
+  @media (max-width: 600px) {
+    min-width: 100px;
+    padding: 0 10px;
   }
 `
 

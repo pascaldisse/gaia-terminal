@@ -17,6 +17,11 @@ const TerminalContainer = styled.div`
   padding: 0.5rem;
   background-color: var(--bg-primary);
   display: ${props => props.visible ? 'block' : 'none'};
+  
+  /* Adjust terminal padding on mobile */
+  @media (max-width: 600px) {
+    padding: 0.25rem;
+  }
 `
 
 const ansiColors = {

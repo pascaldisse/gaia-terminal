@@ -49,6 +49,21 @@ const ToolbarButton = styled.button`
     background-color: var(--accent-primary);
     color: white;
   }
+  
+  @media (max-width: 600px) {
+    padding: 0 8px;
+    
+    /* Hide text on mobile for buttons with text and icon */
+    ${props => props.text ? `
+      span.button-text {
+        display: none;
+      }
+      
+      svg {
+        margin-right: 0;
+      }
+    ` : ''}
+  }
 `
 
 const IconWrapper = styled.span`
@@ -71,6 +86,13 @@ const QuickConnectMenu = styled.div`
   overflow: hidden;
   max-height: 400px;
   overflow-y: auto;
+  
+  @media (max-width: 600px) {
+    right: 10px;
+    width: calc(100% - 20px);
+    max-width: 300px;
+    max-height: 350px;
+  }
 `
 
 const QuickConnectHeader = styled.div`
@@ -204,7 +226,7 @@ function TerminalToolbar({ onSettingsClick, onSSHClick }) {
               <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13 12H3"/>
             </svg>
           </IconWrapper>
-          {hasConnections ? 'Quick Connect' : 'SSH Connect'}
+          <span className="button-text">{hasConnections ? 'Quick Connect' : 'SSH Connect'}</span>
         </ToolbarButton>
         
         {/* SSH Connect Button */}
@@ -215,7 +237,7 @@ function TerminalToolbar({ onSettingsClick, onSSHClick }) {
               <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
             </svg>
           </IconWrapper>
-          SSH
+          <span className="button-text">SSH</span>
         </ToolbarButton>
         
         {/* Settings Button */}

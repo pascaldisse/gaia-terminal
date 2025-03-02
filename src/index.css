@@ -45,6 +45,17 @@ body {
   min-height: 100vh;
 }
 
+/* Add meta viewport tag for mobile */
+@media (max-width: 600px) {
+  body {
+    min-height: -webkit-fill-available;
+  }
+  
+  html {
+    height: -webkit-fill-available;
+  }
+}
+
 button {
   border-radius: 4px;
   border: 1px solid transparent;

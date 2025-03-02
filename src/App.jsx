@@ -24,6 +24,12 @@ const MainContent = styled.main`
   height: calc(100% - 40px);
   position: relative;
   overflow: hidden;
+  
+  @media (max-width: 600px) {
+    /* Ensure the terminal has room on small screens */
+    height: calc(100% - 40px);
+    min-height: 0;
+  }
 `
 
 function App() {

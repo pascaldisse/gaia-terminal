@@ -13,6 +13,8 @@ const ModalOverlay = styled.div`
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  overflow-y: auto;
+  padding: 10px;
 `
 
 const ModalContent = styled.div`
@@ -20,8 +22,16 @@ const ModalContent = styled.div`
   border-radius: 8px;
   width: 100%;
   max-width: 500px;
-  padding: 24px;
+  padding: 16px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  max-height: 90vh;
+  overflow-y: auto;
+  
+  @media (max-width: 600px) {
+    padding: 12px;
+    max-height: 85vh;
+    margin: 8px;
+  }
 `
 
 const ModalHeader = styled.div`
@@ -59,6 +69,10 @@ const Form = styled.form`
   display: flex;
   flex-direction: column;
   gap: 16px;
+  
+  @media (max-width: 600px) {
+    gap: 12px;
+  }
 `
 
 const FormGroup = styled.div`
@@ -70,6 +84,10 @@ const FormGroup = styled.div`
 const Label = styled.label`
   color: var(--text-primary);
   font-size: 0.9rem;
+  
+  @media (max-width: 600px) {
+    font-size: 0.85rem;
+  }
 `
 
 const Input = styled.input`
@@ -84,6 +102,11 @@ const Input = styled.input`
     outline: none;
     border-color: var(--accent-primary);
   }
+  
+  @media (max-width: 600px) {
+    padding: 8px 10px;
+    font-size: 16px; /* Prevents iOS zoom on focus */
+  }
 `
 
 const ButtonGroup = styled.div`
@@ -91,6 +114,11 @@ const ButtonGroup = styled.div`
   justify-content: flex-end;
   gap: 12px;
   margin-top: 8px;
+  
+  @media (max-width: 600px) {
+    flex-direction: column-reverse;
+    gap: 8px;
+  }
 `
 
 const Button = styled.button`
@@ -103,6 +131,12 @@ const Button = styled.button`
   &:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+  
+  @media (max-width: 600px) {
+    padding: 12px 16px;
+    width: 100%;
+    font-size: 1rem;
   }
 `
 
@@ -130,6 +164,11 @@ const SavedConnectionsList = styled.div`
   margin-top: 20px;
   border-top: 1px solid #444;
   padding-top: 16px;
+  
+  @media (max-width: 600px) {
+    margin-top: 16px;
+    padding-top: 12px;
+  }
 `
 
 const SavedConnectionsContainer = styled.div`
@@ -149,6 +188,10 @@ const SavedConnectionsContainer = styled.div`
   &::-webkit-scrollbar-thumb {
     background-color: #444;
     border-radius: 4px;
+  }
+  
+  @media (max-width: 600px) {
+    max-height: 165px;
   }
 `
 
