@@ -24,6 +24,7 @@ export const useTerminalStore = create(
   // Terminal settings
   fontSize: 14,
   fontFamily: 'monospace',
+  debugMode: false,
   theme: {
     background: '#1a1a1a',
     foreground: '#e0e0e0',
@@ -192,6 +193,10 @@ export const useTerminalStore = create(
     set(state => ({ ...state, ...settings }))
   },
   
+  toggleDebugMode: () => {
+    set(state => ({ debugMode: !state.debugMode }))
+  },
+  
   // Environment
   updateEnvironment: (env) => {
     set(state => ({
@@ -259,6 +264,7 @@ export const useTerminalStore = create(
     ),
     fontSize: state.fontSize,
     fontFamily: state.fontFamily,
-    theme: state.theme
+    theme: state.theme,
+    debugMode: state.debugMode
   })
 }))

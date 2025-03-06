@@ -1,14 +1,13 @@
-import express from 'express';
-import http from 'http';
-import { WebSocketServer } from 'ws';
-import { Client } from 'ssh2';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import fs from 'fs';
-import mime from 'mime-types';
+const express = require('express');
+const http = require('http');
+const WebSocket = require('ws');
+const ssh2 = require('ssh2');
+const path = require('path');
+const fs = require('fs');
+const mime = require('mime-types');
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const WebSocketServer = WebSocket.Server;
+const Client = ssh2.Client;
 
 // Create Express app
 const app = express();
@@ -16,7 +15,7 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({ noServer: true });
 
 // Serve static files from the dist directory for built files
-app.use(express.static(join(__dirname, 'dist')));
+app.use(express.static(path.join(__dirname, 'dist')));
 
 // Set MIME types for JavaScript modules
 app.use('*.js', (req, res, next) => {
@@ -43,7 +42,7 @@ app.get('/api/check', (req, res) => {
 
 // Fallback for SPA - all unmatched routes serve index.html
 app.get('*', (req, res) => {
-  res.sendFile(join(__dirname, 'dist', 'index.html'));
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 // Add after your response is sent
@@ -192,7 +191,7 @@ server.on('upgrade', (request, socket, head) => {
 });
 
 // Start server
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Access the application at: http://localhost:${PORT}`);

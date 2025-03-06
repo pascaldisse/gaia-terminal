@@ -28,6 +28,7 @@ const Terminal = ({ id, visible }) => {
     fontSize,
     fontFamily,
     theme,
+    debugMode,
     addCommand,
     getPreviousCommand,
     getNextCommand,
@@ -35,7 +36,8 @@ const Terminal = ({ id, visible }) => {
     environment,
     updateEnvironment,
     activeConnections,
-    sshConnections
+    sshConnections,
+    toggleDebugMode
   } = useTerminalStore();
 
   // Generate prompt text
@@ -79,6 +81,7 @@ const Terminal = ({ id, visible }) => {
           { text: '  cd [path]   - Change directory (simulated)', type: 'output' },
           { text: '  ls          - List files (simulated)', type: 'output' },
           { text: '  pwd         - Print working directory', type: 'output' },
+          { text: '  debug       - Toggle debug mode for keyboard input', type: 'output' },
           { text: '  exit        - Close current SSH connection or tab', type: 'output' },
           { text: '', type: 'output' }
         ]);
@@ -149,6 +152,14 @@ const Terminal = ({ id, visible }) => {
         ]);
         break;
         
+      case 'debug':
+        toggleDebugMode();
+        setOutput(prev => [
+          ...prev,
+          { text: `Debug mode ${!debugMode ? 'enabled' : 'disabled'}`, type: 'system' }
+        ]);
+        break;
+        
       case 'exit':
         if (sshActive && wsRef) {
           wsRef.close();
@@ -171,7 +182,7 @@ const Terminal = ({ id, visible }) => {
           { text: `Command not found: ${cmd}`, type: 'error' }
         ]);
     }
-  }, [id, environment, addCommand, updateEnvironment, generatePrompt, sshActive, wsRef]);
+  }, [id, environment, addCommand, updateEnvironment, generatePrompt, sshActive, wsRef, debugMode, toggleDebugMode]);
 
   // Handle SSH connection changes
   useEffect(() => {
@@ -279,6 +290,70 @@ const Terminal = ({ id, visible }) => {
     setInput('');
     resetHistoryIndex(id);
   };
+  
+  // Handle special key presses
+  const handleKeyPress = (e) => {
+    // Log detailed key press info for debugging
+    const { key, keyCode, code, ctrlKey, metaKey, shiftKey, altKey } = e.nativeEvent;
+    console.log('Key pressed:', { 
+      key, 
+      keyCode, 
+      code,
+      modifiers: {
+        ctrl: ctrlKey,
+        meta: metaKey,
+        shift: shiftKey,
+        alt: altKey
+      } 
+    });
+    
+    // Add debug output to terminal if debug mode is enabled
+    if (useTerminalStore.getState().debugMode) {
+      setOutput(prev => [
+        ...prev,
+        { text: `Key: ${key || 'unknown'}, Code: ${code || keyCode || 'unknown'}`, type: 'system' }
+      ]);
+    }
+    
+    // Handle command history navigation with arrow keys
+    if (key === 'ArrowUp' || code === 'ArrowUp' || keyCode === 38) {
+      const prevCmd = getPreviousCommand(id);
+      if (prevCmd !== undefined) setInput(prevCmd);
+      return;
+    }
+    
+    if (key === 'ArrowDown' || code === 'ArrowDown' || keyCode === 40) {
+      const nextCmd = getNextCommand(id);
+      if (nextCmd !== undefined) setInput(nextCmd);
+      return;
+    }
+    
+    // Handle Ctrl+C to cancel current input
+    if ((ctrlKey && (key === 'c' || code === 'KeyC' || keyCode === 67))) {
+      setOutput(prev => [
+        ...prev,
+        { text: `${generatePrompt()}${input}^C`, type: 'input' },
+      ]);
+      setInput('');
+      return;
+    }
+    
+    // Handle Ctrl+L to clear screen
+    if ((ctrlKey && (key === 'l' || code === 'KeyL' || keyCode === 76))) {
+      setOutput([]);
+      return;
+    }
+    
+    // Handle Tab completion (placeholder - would need actual completion logic)
+    if (key === 'Tab' || code === 'Tab' || keyCode === 9) {
+      // Prevent default tab behavior (focus change)
+      e.preventDefault?.();
+      
+      // Placeholder for tab completion
+      console.log('Tab completion would happen here');
+      return;
+    }
+  };
 
   // Focus input when component becomes visible
   useEffect(() => {
@@ -289,21 +364,35 @@ const Terminal = ({ id, visible }) => {
     }
   }, [visible]);
 
-  // Handle keyboard show/hide
+  // Set up key event handling
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
       'keyboardDidShow',
       () => scrollViewRef.current?.scrollToEnd({ animated: true })
     );
     
+    // Special handler for catching Android hardware keyboard events
+    const keyboardDidHideListener = Keyboard.addListener(
+      'keyboardDidHide',
+      () => {
+        if (debugMode) {
+          setOutput(prev => [
+            ...prev,
+            { text: 'Keyboard hidden', type: 'system' }
+          ]);
+        }
+      }
+    );
+    
     return () => {
       keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
       // Close SSH connection if open when component unmounts
       if (wsRef && sshActive) {
         SSHService.disconnect(wsRef);
       }
     };
-  }, []);
+  }, [debugMode, wsRef, sshActive]);
 
   // Text color map
   const textColorMap = {
@@ -363,19 +452,50 @@ const Terminal = ({ id, visible }) => {
           value={input}
           onChangeText={setInput}
           onSubmitEditing={handleSubmit}
+          onKeyPress={handleKeyPress}
+          // Handle selection changes to better track caret position
+          onSelectionChange={(e) => {
+            if (debugMode) {
+              console.log('Selection changed:', e.nativeEvent.selection);
+            }
+          }}
+          // Handle content size changes to adjust scrolling if needed
+          onContentSizeChange={() => {
+            if (debugMode) {
+              console.log('Content size changed');
+            }
+          }}
+          // Handle text input to log each character
+          onTextInput={(e) => {
+            if (debugMode) {
+              console.log('Text input:', e.nativeEvent.text);
+            }
+          }}
           blurOnSubmit={false}
           autoCapitalize="none"
           autoCorrect={false}
           spellCheck={false}
           returnKeyType="go"
+          // Enable keyboard tracking in debug mode
+          keyboardType={debugMode ? "visible-password" : "default"}
+          caretHidden={false}
+          contextMenuHidden={false}
+          // High text content priority for keyboard shortcuts
+          textContentType="none"
+          importantForAutofill="no"
         />
       </View>
       
       <TouchableOpacity 
-        style={styles.keyboardControl}
+        style={[
+          styles.keyboardControl,
+          debugMode ? { backgroundColor: 'rgba(0, 150, 0, 0.7)' } : {}
+        ]}
         onPress={() => Keyboard.dismiss()}
       >
-        <Text style={styles.keyboardControlText}>Hide Keyboard</Text>
+        <Text style={styles.keyboardControlText}>
+          {debugMode ? 'Debug: ON - Hide Keyboard' : 'Hide Keyboard'}
+        </Text>
       </TouchableOpacity>
     </View>
   );
