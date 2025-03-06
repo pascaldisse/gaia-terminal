@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, SafeAreaView } from 'react-native';
 import Terminal from './components/Terminal/Terminal';
 import TerminalTabs from './components/Terminal/TerminalTabs';
 import TerminalToolbar from './components/Terminal/TerminalToolbar';
 import SettingsPanel from './components/Settings/SettingsPanel';
 import SSHModal from './components/SSH/SSHModal';
 import { useTerminalStore } from './stores/terminalStore';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 function App() {
   const [showSettings, setShowSettings] = useState(false);

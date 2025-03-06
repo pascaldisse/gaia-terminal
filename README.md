@@ -1,8 +1,8 @@
-# 🚀 Gaia Terminal
+# 🚀 Spaceflight Terminal
 
-A modern, spaceship-prompt inspired web terminal with SSH capabilities.
+A modern, spaceship-prompt inspired web terminal with SSH capabilities for both desktop and mobile.
 
-![Gaia Terminal Screenshot](https://github.com/spaceship-prompt/spaceship-prompt/raw/master/preview.gif)
+![Spaceflight Terminal Screenshot](https://github.com/spaceship-prompt/spaceship-prompt/raw/master/preview.gif)
 
 ## 📋 Table of Contents
 
@@ -30,11 +30,11 @@ A modern, spaceship-prompt inspired web terminal with SSH capabilities.
 - 🔧 **Customizable Sections**: Toggle prompt sections on/off based on your needs
 - 🌟 **Command Highlighting**: Syntax highlighting for commands and outputs
 - 🧠 **Smart Command History**: Navigate through command history with ease
-- 📱 **Responsive Design**: Works on desktop and mobile devices
+- 📱 **Responsive Design**: Works on desktop and mobile devices with native app capabilities
 
 ## 🏗️ Architecture
 
-Gaia Terminal consists of two main components:
+Spaceflight Terminal consists of two main components:
 
 1. **Frontend**: React + Vite application providing the terminal UI
    - Uses xterm.js for terminal emulation
@@ -149,29 +149,40 @@ You can customize various aspects of the terminal through the settings panel:
 
 - Node.js 16+
 - npm or yarn
+- For mobile development: Expo CLI and iOS/Android development setup
 
 ### Installation
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/gaia-terminal.git
-cd gaia-terminal
+git clone https://github.com/yourusername/spaceflight-terminal.git
+cd spaceflight-terminal
 
 # Install dependencies
 npm install
 
-# Start development server
+# Start development server (web)
 npm run dev
+
+# Start development server (mobile)
+npm run start
+# Or for specific platforms
+npm run ios
+npm run android
 ```
 
 ### Building for Production
 
 ```bash
-# Build the application
+# Build the web application
 npm run build
 
 # Start the production server
 node server.js
+
+# Build for mobile platforms
+npm run build:ios
+npm run build:android
 ```
 
 ## 🛠️ Development

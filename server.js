@@ -57,6 +57,8 @@ app.use((req, res, next) => {
 // Handle WebSocket connections
 wss.on('connection', (ws) => {
   console.log('WebSocket connection established');
+  // Log connection to server log
+  fs.appendFileSync('server.log', `WebSocket connection established at ${new Date().toISOString()}\n`);
   
   let sshClient = null;
   let stream = null;
@@ -168,6 +170,8 @@ wss.on('connection', (ws) => {
   
   ws.on('close', () => {
     console.log('WebSocket connection closed');
+    // Log to server log
+    fs.appendFileSync('server.log', `WebSocket connection closed at ${new Date().toISOString()}\n`);
     if (sshClient) {
       sshClient.end();
     }
@@ -193,6 +197,10 @@ server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Access the application at: http://localhost:${PORT}`);
   console.log(`WebSocket endpoint available at: ws://localhost:${PORT}/ws/ssh`);
+  console.log(`Mobile clients can connect to: ws://<YOUR_LOCAL_IP>:${PORT}/ws/ssh`);
+  
+  // Write to server log
+  fs.appendFileSync('server.log', `Server started on port ${PORT} at ${new Date().toISOString()}\n`);
 });
 
 // Global error handling

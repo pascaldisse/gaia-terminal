@@ -10,13 +10,14 @@ import {
   Dimensions 
 } from 'react-native';
 import { useTerminalStore } from '../../stores/terminalStore';
+import SSHService from '../../services/ssh-service';
 
 const Terminal = ({ id, visible }) => {
   const scrollViewRef = useRef(null);
   const inputRef = useRef(null);
   const [input, setInput] = useState('');
   const [output, setOutput] = useState([
-    { text: 'Welcome to Gaia Terminal Mobile!', type: 'system' },
+    { text: 'Welcome to Spaceflight Terminal!', type: 'system' },
     { text: 'Type "help" for available commands.', type: 'system' },
     { text: '', type: 'system' }
   ]);
@@ -58,11 +59,8 @@ const Terminal = ({ id, visible }) => {
     
     // Check if we're in SSH mode
     if (sshActive && wsRef) {
-      // Send command to SSH server
-      wsRef.send(JSON.stringify({
-        type: 'data',
-        data: `${command}\r`
-      }));
+      // Send command to SSH server using the service
+      SSHService.sendData(wsRef, `${command}\r`);
       return;
     }
     
@@ -180,8 +178,9 @@ const Terminal = ({ id, visible }) => {
     const connectionId = activeConnections[id];
     
     // Close existing connection if open
-    if (wsRef && wsRef.readyState === WebSocket.OPEN) {
-      wsRef.close();
+    if (wsRef && sshActive) {
+      SSHService.disconnect(wsRef);
+      setWsRef(null);
       setSshActive(false);
     }
     
@@ -201,29 +200,30 @@ const Terminal = ({ id, visible }) => {
       { text: `Connecting to ${connection.host}...`, type: 'system' }
     ]);
     
-    // Create WebSocket connection to backend
-    const protocol = 'ws:'; // Use wss: for production
-    const host = connection.host; // Should be your server address
-    const ws = new WebSocket(`${protocol}//${host}:5000/ws/ssh`);
+    // Get current terminal dimensions - estimate based on container size
+    const { width, height } = Dimensions.get('window');
+    const cols = Math.floor(width / (fontSize * 0.6));
+    const rows = Math.floor(height / fontSize);
     
-    ws.onopen = () => {
-      // Get current terminal dimensions - estimate based on container size
-      const { width, height } = Dimensions.get('window');
-      const cols = Math.floor(width / (fontSize * 0.6));
-      const rows = Math.floor(height / fontSize);
-      
-      ws.send(JSON.stringify({
-        type: 'connect',
-        ...connection,
-        rows,
-        cols
-      }));
+    // Set up connection details
+    const connectionDetails = {
+      ...connection,
+      rows,
+      cols
     };
     
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      
-      if (data.type === 'connected') {
+    // Connect using SSH service
+    const connectionId = SSHService.connect(
+      connectionDetails,
+      // onData
+      (data) => {
+        setOutput(prev => [
+          ...prev,
+          { text: data, type: 'output' }
+        ]);
+      },
+      // onConnect
+      () => {
         setSshActive(true);
         setOutput(prev => [
           ...prev,
@@ -236,18 +236,9 @@ const Terminal = ({ id, visible }) => {
           username: connection.username,
           path: '~'
         });
-      } else if (data.type === 'data') {
-        setOutput(prev => [
-          ...prev,
-          { text: data.data, type: 'output' }
-        ]);
-      } else if (data.type === 'error') {
-        setOutput(prev => [
-          ...prev,
-          { text: `Error: ${data.message}`, type: 'error' }
-        ]);
-        setSshActive(false);
-      } else if (data.type === 'close') {
+      },
+      // onClose
+      () => {
         setOutput(prev => [
           ...prev,
           { text: 'Connection closed', type: 'system' }
@@ -260,35 +251,19 @@ const Terminal = ({ id, visible }) => {
           username: 'user',
           path: '~'
         });
-      }
-    };
-    
-    ws.onerror = () => {
-      setOutput(prev => [
-        ...prev,
-        { text: 'WebSocket connection error', type: 'error' }
-      ]);
-      setSshActive(false);
-    };
-    
-    ws.onclose = () => {
-      if (sshActive) {
+      },
+      // onError
+      (message) => {
         setOutput(prev => [
           ...prev,
-          { text: 'Connection closed', type: 'system' }
+          { text: `Error: ${message}`, type: 'error' }
         ]);
         setSshActive(false);
-        
-        // Reset environment for prompt
-        updateEnvironment({
-          hostname: 'localhost',
-          username: 'user',
-          path: '~'
-        });
       }
-    };
+    );
     
-    setWsRef(ws);
+    // Store the connection ID for later use
+    setWsRef(connectionId);
   };
 
   // Autoscroll to bottom when output changes
@@ -323,9 +298,9 @@ const Terminal = ({ id, visible }) => {
     
     return () => {
       keyboardDidShowListener.remove();
-      // Close WebSocket if open when component unmounts
-      if (wsRef && wsRef.readyState === WebSocket.OPEN) {
-        wsRef.close();
+      // Close SSH connection if open when component unmounts
+      if (wsRef && sshActive) {
+        SSHService.disconnect(wsRef);
       }
     };
   }, []);

@@ -1,6 +1,6 @@
 # Spaceflight Terminal User Guide
 
-Welcome to Spaceflight Terminal, a modern web-based terminal with spaceship-prompt inspired design!
+Welcome to Spaceflight Terminal, a modern web and mobile terminal with spaceship-prompt inspired design!
 
 ![Spaceflight Terminal](https://github.com/spaceship-prompt/spaceship-prompt/raw/master/preview.gif)
 
@@ -137,6 +137,23 @@ Command history is saved between sessions. You can:
 
 5. **Tab Naming**: SSH tabs are automatically named based on the connection details for easy identification.
 
+## Mobile-Specific Features
+
+When using the mobile application:
+
+1. **Touch Keyboard**:
+   - Touch anywhere on the terminal to bring up the keyboard
+   - Use the "Hide Keyboard" button to dismiss it
+   
+2. **Gesture Support**:
+   - Swipe left/right to switch between tabs
+   - Pinch to zoom text size
+   - Long-press on text to copy
+
+3. **Offline Mode**:
+   - The app can function without network for local commands
+   - SSH connections require network connectivity
+
 ## Troubleshooting
 
 If you encounter issues:
@@ -155,3 +172,8 @@ If you encounter issues:
    - Limit the number of open terminal tabs
    - Close tabs when not in use
    - Clear very long output with the `clear` command
+   
+4. **Mobile-Specific Issues**:
+   - If keyboard doesn't appear, try tapping in different areas of the terminal
+   - Restart the app if WebSocket connections fail repeatedly
+   - For iOS simulator issues, try using different device models
