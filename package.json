@@ -1,38 +1,39 @@
 {
-  "name": "gaia-terminal",
-  "private": true,
+  "name": "gaia-terminal-mobile",
   "version": "1.0.0",
-  "type": "module",
+  "private": true,
   "scripts": {
-    "dev": "vite --force",
-    "build": "vite build --emptyOutDir",
-    "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview",
-    "start": "node server.js",
-    "clean": "rm -rf node_modules && rm -rf dist"
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "eject": "expo eject",
+    "lint": "eslint . --ext js,jsx,ts,tsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
-    "@xterm/addon-fit": "^0.9.0",
-    "@xterm/addon-search": "^0.14.0",
-    "@xterm/addon-web-links": "^0.10.0",
-    "@xterm/xterm": "^5.4.0",
-    "express": "^4.18.2",
+    "@react-native-async-storage/async-storage": "^1.22.0",
+    "expo": "~50.0.6",
+    "expo-status-bar": "~1.11.1",
     "nanoid": "^5.1.2",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "ssh2": "^1.15.0",
+    "react": "18.2.0",
+    "react-native": "0.73.4",
+    "react-native-gesture-handler": "~2.14.0",
+    "react-native-reanimated": "~3.6.2",
+    "react-native-safe-area-context": "4.8.2",
+    "react-native-screens": "~3.29.0",
+    "react-native-svg": "14.1.0",
+    "react-native-tab-view": "^3.5.2",
+    "react-native-vector-icons": "^10.0.3",
     "styled-components": "^6.1.6",
-    "ws": "^8.16.0",
     "zustand": "^4.4.7"
   },
   "devDependencies": {
-    "@types/react": "^18.2.43",
-    "@types/react-dom": "^18.2.17",
-    "@vitejs/plugin-react": "^4.2.1",
+    "@babel/core": "^7.20.0",
+    "@types/react": "~18.2.45",
     "eslint": "^8.55.0",
     "eslint-plugin-react": "^7.33.2",
     "eslint-plugin-react-hooks": "^4.6.0",
-    "eslint-plugin-react-refresh": "^0.4.5",
-    "vite": "^5.0.8"
+    "eslint-plugin-react-native": "^4.1.0",
+    "typescript": "^5.3.0"
   }
 }

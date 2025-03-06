@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "Gaia Terminal",
+    "slug": "gaia-terminal-mobile",
+    "version": "1.0.0",
+    "orientation": "default",
+    "icon": "./public/favicon.svg",
+    "splash": {
+      "image": "./public/favicon.svg",
+      "resizeMode": "contain",
+      "backgroundColor": "#1a1a1a"
+    },
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.gaia.terminal"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./public/favicon.svg",
+        "backgroundColor": "#1a1a1a"
+      },
+      "package": "com.gaia.terminal"
+    },
+    "web": {
+      "favicon": "./public/favicon.svg"
+    }
+  }
+}

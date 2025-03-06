@@ -1,177 +1,112 @@
-import { useState } from 'react'
-import styled from 'styled-components'
-import { useTerminalStore } from '../../stores/terminalStore'
-
-const TabsContainer = styled.div`
-  display: flex;
-  height: 40px;
-  background-color: var(--bg-secondary);
-  overflow-x: auto;
-  overflow-y: hidden;
-  white-space: nowrap;
-  border-bottom: 1px solid var(--bg-tertiary);
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE and Edge */
-  
-  &::-webkit-scrollbar {
-    display: none; /* Chrome, Safari, Opera */
-  }
-`
-
-const Tab = styled.div`
-  display: flex;
-  align-items: center;
-  padding: 0 16px;
-  height: 100%;
-  cursor: pointer;
-  color: ${props => props.active ? 'var(--text-primary)' : 'var(--text-secondary)'};
-  background-color: ${props => props.active ? 'var(--bg-primary)' : 'transparent'};
-  border-right: 1px solid var(--bg-tertiary);
-  user-select: none;
-  min-width: 120px;
-  position: relative;
-  
-  &:hover {
-    background-color: ${props => props.active ? 'var(--bg-primary)' : 'var(--bg-tertiary)'};
-  }
-  
-  &:hover .close-button {
-    opacity: 1;
-  }
-  
-  @media (max-width: 600px) {
-    min-width: 100px;
-    padding: 0 10px;
-  }
-`
-
-const TabName = styled.span`
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-`
-
-const CloseButton = styled.button`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  border: none;
-  background-color: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  opacity: 0.5;
-  padding: 0;
-  margin-left: 8px;
-  font-size: 14px;
-  line-height: 1;
-  transition: opacity 0.2s, background-color 0.2s;
-  
-  &:hover {
-    background-color: var(--error);
-    color: white;
-  }
-`
-
-const AddTabButton = styled.button`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 40px;
-  height: 100%;
-  border: none;
-  background-color: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 20px;
-  padding: 0 16px;
-  
-  &:hover {
-    background-color: var(--bg-tertiary);
-    color: var(--text-primary);
-  }
-`
+import React from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { useTerminalStore } from '../../stores/terminalStore';
 
 function TerminalTabs() {
-  const { tabs, activeTab, addTab, closeTab, setActiveTab } = useTerminalStore()
-  const [isEditing, setIsEditing] = useState(false)
-  const [editValue, setEditValue] = useState('')
-  const [editId, setEditId] = useState(null)
-  
-  const handleDoubleClick = (tab) => {
-    setIsEditing(true)
-    setEditId(tab.id)
-    setEditValue(tab.name)
-  }
-  
-  const handleEditSubmit = () => {
-    if (editValue.trim() !== '') {
-      // Update tab name
-      const updatedTabs = tabs.map(tab => 
-        tab.id === editId ? { ...tab, name: editValue.trim() } : tab
-      )
-      
-      // Update store (simplified as we don't have direct setter)
-      useTerminalStore.setState({ tabs: updatedTabs })
-    }
-    
-    setIsEditing(false)
-    setEditId(null)
-  }
-  
+  const { tabs, activeTab, addTab, closeTab, setActiveTab } = useTerminalStore();
+
   return (
-    <TabsContainer>
-      {tabs.map(tab => (
-        <Tab 
-          key={tab.id} 
-          active={tab.id === activeTab}
-          onClick={() => setActiveTab(tab.id)}
-          onDoubleClick={() => handleDoubleClick(tab)}
-        >
-          {isEditing && tab.id === editId ? (
-            <input
-              type="text"
-              value={editValue}
-              onChange={(e) => setEditValue(e.target.value)}
-              onBlur={handleEditSubmit}
-              onKeyDown={(e) => e.key === 'Enter' && handleEditSubmit()}
-              autoFocus
-              style={{ 
-                background: 'transparent', 
-                border: 'none', 
-                outline: 'none',
-                color: 'inherit',
-                width: '100%'
-              }}
-            />
-          ) : (
-            <TabName>{tab.name}</TabName>
-          )}
-          
-          <CloseButton 
-            className="close-button"
-            onClick={(e) => {
-              e.stopPropagation()
-              closeTab(tab.id)
-            }}
-            title="Close tab"
-          >
-            ×
-          </CloseButton>
-        </Tab>
-      ))}
-      
-      <AddTabButton 
-        onClick={() => addTab('New Terminal')}
-        title="New terminal tab"
+    <View style={styles.container}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
       >
-        +
-      </AddTabButton>
-    </TabsContainer>
-  )
+        {tabs.map(tab => (
+          <TouchableOpacity
+            key={tab.id}
+            style={[
+              styles.tab,
+              tab.id === activeTab && styles.activeTab
+            ]}
+            onPress={() => setActiveTab(tab.id)}
+          >
+            <Text 
+              style={[
+                styles.tabText,
+                tab.id === activeTab && styles.activeTabText
+              ]}
+              numberOfLines={1}
+            >
+              {tab.name}
+            </Text>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => closeTab(tab.id)}
+            >
+              <Text style={styles.closeButtonText}>×</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+      
+      <TouchableOpacity
+        style={styles.addButton}
+        onPress={() => addTab('New Tab')}
+      >
+        <Text style={styles.addButtonText}>+</Text>
+      </TouchableOpacity>
+    </View>
+  );
 }
 
-export default TerminalTabs
+const styles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    backgroundColor: '#121212',
+    borderBottomWidth: 1,
+    borderBottomColor: '#333',
+    height: 40,
+  },
+  scrollContent: {
+    flexDirection: 'row',
+  },
+  tab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    minWidth: 120,
+    maxWidth: 160,
+    backgroundColor: '#1a1a1a',
+    borderRightWidth: 1,
+    borderRightColor: '#333',
+  },
+  activeTab: {
+    backgroundColor: '#2a2a2a',
+  },
+  tabText: {
+    color: '#ccc',
+    flex: 1,
+    fontSize: 14,
+  },
+  activeTabText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  closeButton: {
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 5,
+  },
+  closeButtonText: {
+    color: '#999',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  addButton: {
+    width: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#121212',
+  },
+  addButtonText: {
+    color: '#ccc',
+    fontSize: 20,
+    fontWeight: 'bold',
+  }
+});
+
+export default TerminalTabs;

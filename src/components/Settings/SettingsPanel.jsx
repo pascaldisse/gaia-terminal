@@ -1,426 +1,367 @@
-import { useState, useEffect } from 'react'
-import styled from 'styled-components'
-import { useTerminalStore } from '../../stores/terminalStore'
+import React, { useState } from 'react';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  Modal, 
+  TouchableOpacity,
+  ScrollView,
+  TextInput,
+  Slider
+} from 'react-native';
+import { useTerminalStore } from '../../stores/terminalStore';
 
-const PanelContainer = styled.div`
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 350px;
-  height: 100%;
-  background-color: var(--bg-secondary);
-  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.3);
-  z-index: 100;
-  overflow-y: auto;
-  animation: slideIn 0.2s ease-out;
-  
-  @keyframes slideIn {
-    from {
-      transform: translateX(100%);
-    }
-    to {
-      transform: translateX(0);
-    }
-  }
-`
+// Color picker component
+const ColorPicker = ({ color, onColorChange, label }) => {
+  const colors = [
+    '#000000', '#800000', '#008000', '#808000', '#000080', '#800080', '#008080', '#c0c0c0',
+    '#808080', '#ff0000', '#00ff00', '#ffff00', '#0000ff', '#ff00ff', '#00ffff', '#ffffff',
+    '#073642', '#dc322f', '#859900', '#b58900', '#268bd2', '#d33682', '#2aa198', '#eee8d5',
+    '#002b36', '#cb4b16', '#586e75', '#657b83', '#839496', '#6c71c4', '#93a1a1', '#fdf6e3'
+  ];
 
-const PanelHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--bg-tertiary);
-`
-
-const PanelTitle = styled.h2`
-  margin: 0;
-  color: var(--text-primary);
-  font-size: 1.25rem;
-`
-
-const CloseButton = styled.button`
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  font-size: 1.5rem;
-  cursor: pointer;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  
-  &:hover {
-    color: var(--text-primary);
-  }
-`
-
-const PanelContent = styled.div`
-  padding: 20px;
-`
-
-const SettingsSection = styled.div`
-  margin-bottom: 24px;
-`
-
-const SectionTitle = styled.h3`
-  margin: 0 0 12px 0;
-  color: var(--text-primary);
-  font-size: 1rem;
-  font-weight: 600;
-`
-
-const FormGroup = styled.div`
-  margin-bottom: 16px;
-`
-
-const Label = styled.label`
-  display: block;
-  margin-bottom: 6px;
-  color: var(--text-primary);
-  font-size: 0.9rem;
-`
-
-const Input = styled.input`
-  width: 100%;
-  padding: 8px 12px;
-  background-color: var(--bg-tertiary);
-  border: 1px solid #444;
-  border-radius: 4px;
-  color: var(--text-primary);
-  font-size: 1rem;
-  
-  &:focus {
-    outline: none;
-    border-color: var(--accent-primary);
-  }
-`
-
-const Select = styled.select`
-  width: 100%;
-  padding: 8px 12px;
-  background-color: var(--bg-tertiary);
-  border: 1px solid #444;
-  border-radius: 4px;
-  color: var(--text-primary);
-  font-size: 1rem;
-  
-  &:focus {
-    outline: none;
-    border-color: var(--accent-primary);
-  }
-`
-
-const ColorSwatch = styled.div`
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
-  background-color: ${props => props.color};
-  cursor: pointer;
-  border: 2px solid ${props => props.selected ? 'var(--accent-primary)' : 'transparent'};
-`
-
-const ColorGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 8px;
-  margin-top: 8px;
-`
-
-const SaveButton = styled.button`
-  padding: 10px 16px;
-  border-radius: 4px;
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-  background-color: var(--accent-primary);
-  border: 1px solid var(--accent-primary);
-  color: white;
-  margin-top: 16px;
-  
-  &:hover {
-    background-color: #7d82d8;
-  }
-`
+  return (
+    <View style={styles.colorPickerContainer}>
+      <View style={styles.colorLabelContainer}>
+        <Text style={styles.colorLabel}>{label}</Text>
+        <View style={[styles.colorPreview, { backgroundColor: color }]} />
+      </View>
+      
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        style={styles.colorScroll}
+      >
+        <View style={styles.colorGrid}>
+          {colors.map((c) => (
+            <TouchableOpacity
+              key={c}
+              style={[
+                styles.colorSwatch,
+                { backgroundColor: c },
+                c === color && styles.selectedSwatch
+              ]}
+              onPress={() => onColorChange(c)}
+            />
+          ))}
+        </View>
+      </ScrollView>
+    </View>
+  );
+};
 
 function SettingsPanel({ onClose }) {
-  const { fontSize, fontFamily, theme, updateSettings } = useTerminalStore()
+  const { fontSize, fontFamily, theme, updateSettings } = useTerminalStore();
   
   const [settings, setSettings] = useState({
     fontSize,
     fontFamily,
     theme: { ...theme }
-  })
+  });
   
-  // Available font families
-  const fontFamilies = [
-    'JetBrains Mono, monospace',
-    'Fira Code, monospace',
-    'Inconsolata, monospace',
-    'Source Code Pro, monospace',
-    'Menlo, monospace',
-    'Consolas, monospace',
-    'Monaco, monospace',
-    'Ubuntu Mono, monospace'
-  ]
-  
-  // Color themes
-  const colorThemes = [
-    {
-      name: 'Dark (Default)',
-      colors: {
-        background: '#1a1a1a',
-        foreground: '#e0e0e0',
-        cursor: '#6c71c4',
-        selection: 'rgba(108, 113, 196, 0.3)'
-      }
-    },
-    {
-      name: 'Solarized Dark',
-      colors: {
-        background: '#002b36',
-        foreground: '#839496',
-        cursor: '#93a1a1',
-        selection: 'rgba(147, 161, 161, 0.3)'
-      }
-    },
-    {
-      name: 'Monokai',
-      colors: {
-        background: '#272822',
-        foreground: '#f8f8f2',
-        cursor: '#f8f8f0',
-        selection: 'rgba(73, 72, 62, 0.5)'
-      }
-    },
-    {
-      name: 'Nord',
-      colors: {
-        background: '#2e3440',
-        foreground: '#d8dee9',
-        cursor: '#88c0d0',
-        selection: 'rgba(136, 192, 208, 0.3)'
-      }
-    },
-    {
-      name: 'Dracula',
-      colors: {
-        background: '#282a36',
-        foreground: '#f8f8f2',
-        cursor: '#bd93f9',
-        selection: 'rgba(68, 71, 90, 0.5)'
-      }
-    },
-    {
-      name: 'GitHub Dark',
-      colors: {
-        background: '#0d1117',
-        foreground: '#c9d1d9',
-        cursor: '#58a6ff',
-        selection: 'rgba(56, 139, 253, 0.3)'
-      }
-    }
-  ]
-  
-  const handleChange = (e) => {
-    const { name, value } = e.target
+  const handleFontSizeChange = (value) => {
     setSettings(prev => ({
       ...prev,
-      [name]: value
-    }))
-  }
+      fontSize: Math.round(value)
+    }));
+  };
   
-  const handleThemeChange = (themeName) => {
-    const selectedTheme = colorThemes.find(theme => theme.name === themeName)
-    if (selectedTheme) {
-      setSettings(prev => ({
-        ...prev,
-        theme: {
-          ...prev.theme,
-          ...selectedTheme.colors
-        }
-      }))
-    }
-  }
+  const handleFontFamilyChange = (text) => {
+    setSettings(prev => ({
+      ...prev,
+      fontFamily: text
+    }));
+  };
   
-  const handleColorChange = (colorKey, colorValue) => {
+  const handleColorChange = (key, color) => {
     setSettings(prev => ({
       ...prev,
       theme: {
         ...prev.theme,
-        [colorKey]: colorValue
+        [key]: color
       }
-    }))
-  }
+    }));
+  };
   
-  const handleSave = () => {
-    updateSettings(settings)
-    onClose()
-  }
-  
-  // Color swatches for terminal colors
-  const colorSwatches = [
-    { key: 'black', name: 'Black' },
-    { key: 'red', name: 'Red' },
-    { key: 'green', name: 'Green' },
-    { key: 'yellow', name: 'Yellow' },
-    { key: 'blue', name: 'Blue' },
-    { key: 'magenta', name: 'Magenta' },
-    { key: 'cyan', name: 'Cyan' },
-    { key: 'white', name: 'White' },
-    { key: 'brightBlack', name: 'Bright Black' },
-    { key: 'brightRed', name: 'Bright Red' },
-    { key: 'brightGreen', name: 'Bright Green' },
-    { key: 'brightYellow', name: 'Bright Yellow' },
-    { key: 'brightBlue', name: 'Bright Blue' },
-    { key: 'brightMagenta', name: 'Bright Magenta' },
-    { key: 'brightCyan', name: 'Bright Cyan' },
-    { key: 'brightWhite', name: 'Bright White' }
-  ]
+  const saveSettings = () => {
+    updateSettings({
+      fontSize: settings.fontSize,
+      fontFamily: settings.fontFamily,
+      theme: settings.theme
+    });
+    onClose();
+  };
   
   return (
-    <PanelContainer>
-      <PanelHeader>
-        <PanelTitle>Settings</PanelTitle>
-        <CloseButton onClick={onClose}>×</CloseButton>
-      </PanelHeader>
-      
-      <PanelContent>
-        <SettingsSection>
-          <SectionTitle>Font</SectionTitle>
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={true}
+      onRequestClose={onClose}
+    >
+      <View style={styles.centeredView}>
+        <View style={styles.modalView}>
+          <Text style={styles.modalTitle}>Terminal Settings</Text>
           
-          <FormGroup>
-            <Label htmlFor="fontSize">Font Size</Label>
-            <Input
-              type="number"
-              id="fontSize"
-              name="fontSize"
-              min="8"
-              max="32"
-              value={settings.fontSize}
-              onChange={handleChange}
-            />
-          </FormGroup>
+          <ScrollView style={styles.settingsContainer}>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Display</Text>
+              
+              <View style={styles.settingItem}>
+                <Text style={styles.settingLabel}>Font Size: {settings.fontSize}px</Text>
+                <Slider
+                  style={styles.slider}
+                  minimumValue={8}
+                  maximumValue={24}
+                  step={1}
+                  value={settings.fontSize}
+                  onValueChange={handleFontSizeChange}
+                  minimumTrackTintColor="#4CAF50"
+                  maximumTrackTintColor="#000000"
+                  thumbTintColor="#4CAF50"
+                />
+              </View>
+              
+              <View style={styles.settingItem}>
+                <Text style={styles.settingLabel}>Font Family</Text>
+                <TextInput
+                  style={styles.input}
+                  value={settings.fontFamily}
+                  onChangeText={handleFontFamilyChange}
+                  placeholder="Font family name"
+                  placeholderTextColor="#999"
+                />
+              </View>
+            </View>
+            
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Terminal Colors</Text>
+              
+              <ColorPicker
+                label="Background"
+                color={settings.theme.background}
+                onColorChange={(color) => handleColorChange('background', color)}
+              />
+              
+              <ColorPicker
+                label="Foreground"
+                color={settings.theme.foreground}
+                onColorChange={(color) => handleColorChange('foreground', color)}
+              />
+              
+              <ColorPicker
+                label="Cursor"
+                color={settings.theme.cursor}
+                onColorChange={(color) => handleColorChange('cursor', color)}
+              />
+              
+              <Text style={styles.colorCategoryLabel}>ANSI Colors</Text>
+              
+              <View style={styles.colorGrid}>
+                <ColorPicker
+                  label="Black"
+                  color={settings.theme.black}
+                  onColorChange={(color) => handleColorChange('black', color)}
+                />
+                
+                <ColorPicker
+                  label="Red"
+                  color={settings.theme.red}
+                  onColorChange={(color) => handleColorChange('red', color)}
+                />
+                
+                <ColorPicker
+                  label="Green"
+                  color={settings.theme.green}
+                  onColorChange={(color) => handleColorChange('green', color)}
+                />
+                
+                <ColorPicker
+                  label="Yellow"
+                  color={settings.theme.yellow}
+                  onColorChange={(color) => handleColorChange('yellow', color)}
+                />
+                
+                <ColorPicker
+                  label="Blue"
+                  color={settings.theme.blue}
+                  onColorChange={(color) => handleColorChange('blue', color)}
+                />
+                
+                <ColorPicker
+                  label="Magenta"
+                  color={settings.theme.magenta}
+                  onColorChange={(color) => handleColorChange('magenta', color)}
+                />
+                
+                <ColorPicker
+                  label="Cyan"
+                  color={settings.theme.cyan}
+                  onColorChange={(color) => handleColorChange('cyan', color)}
+                />
+                
+                <ColorPicker
+                  label="White"
+                  color={settings.theme.white}
+                  onColorChange={(color) => handleColorChange('white', color)}
+                />
+              </View>
+            </View>
+          </ScrollView>
           
-          <FormGroup>
-            <Label htmlFor="fontFamily">Font Family</Label>
-            <Select
-              id="fontFamily"
-              name="fontFamily"
-              value={settings.fontFamily}
-              onChange={handleChange}
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity
+              style={[styles.button, styles.buttonCancel]}
+              onPress={onClose}
             >
-              {fontFamilies.map(font => (
-                <option key={font} value={font}>
-                  {font.split(',')[0]}
-                </option>
-              ))}
-            </Select>
-          </FormGroup>
-        </SettingsSection>
-        
-        <SettingsSection>
-          <SectionTitle>Theme</SectionTitle>
-          
-          <FormGroup>
-            <Label>Preset Themes</Label>
-            <Select
-              onChange={(e) => handleThemeChange(e.target.value)}
-              value=""
+              <Text style={styles.buttonText}>Cancel</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[styles.button, styles.buttonSave]}
+              onPress={saveSettings}
             >
-              <option value="" disabled>Select a theme...</option>
-              {colorThemes.map(theme => (
-                <option key={theme.name} value={theme.name}>
-                  {theme.name}
-                </option>
-              ))}
-            </Select>
-          </FormGroup>
-          
-          <FormGroup>
-            <Label htmlFor="background">Background Color</Label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <Input
-                type="color"
-                id="background"
-                value={settings.theme.background}
-                onChange={(e) => handleColorChange('background', e.target.value)}
-                style={{ width: '40px', padding: '2px' }}
-              />
-              <Input
-                type="text"
-                value={settings.theme.background}
-                onChange={(e) => handleColorChange('background', e.target.value)}
-              />
-            </div>
-          </FormGroup>
-          
-          <FormGroup>
-            <Label htmlFor="foreground">Foreground Color</Label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <Input
-                type="color"
-                id="foreground"
-                value={settings.theme.foreground}
-                onChange={(e) => handleColorChange('foreground', e.target.value)}
-                style={{ width: '40px', padding: '2px' }}
-              />
-              <Input
-                type="text"
-                value={settings.theme.foreground}
-                onChange={(e) => handleColorChange('foreground', e.target.value)}
-              />
-            </div>
-          </FormGroup>
-          
-          <FormGroup>
-            <Label htmlFor="cursor">Cursor Color</Label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <Input
-                type="color"
-                id="cursor"
-                value={settings.theme.cursor}
-                onChange={(e) => handleColorChange('cursor', e.target.value)}
-                style={{ width: '40px', padding: '2px' }}
-              />
-              <Input
-                type="text"
-                value={settings.theme.cursor}
-                onChange={(e) => handleColorChange('cursor', e.target.value)}
-              />
-            </div>
-          </FormGroup>
-          
-          <FormGroup>
-            <Label>Terminal Colors</Label>
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(2, 1fr)',
-              gap: '10px',
-              marginTop: '8px'
-            }}>
-              {colorSwatches.map(swatch => (
-                <div key={swatch.key} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Input
-                    type="color"
-                    value={settings.theme[swatch.key] || '#000000'}
-                    onChange={(e) => handleColorChange(swatch.key, e.target.value)}
-                    style={{ width: '24px', height: '24px', padding: '2px' }}
-                  />
-                  <span style={{ fontSize: '0.85rem' }}>{swatch.name}</span>
-                </div>
-              ))}
-            </div>
-          </FormGroup>
-        </SettingsSection>
-        
-        <SaveButton onClick={handleSave}>
-          Save Settings
-        </SaveButton>
-      </PanelContent>
-    </PanelContainer>
-  )
+              <Text style={styles.buttonText}>Save Settings</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
 }
 
-export default SettingsPanel
+const styles = StyleSheet.create({
+  centeredView: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  },
+  modalView: {
+    width: '90%',
+    maxWidth: 500,
+    maxHeight: '90%',
+    backgroundColor: '#1a1a1a',
+    borderRadius: 10,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  settingsContainer: {
+    maxHeight: 450,
+  },
+  section: {
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    paddingBottom: 5,
+    borderBottomWidth: 1,
+    borderBottomColor: '#333',
+  },
+  settingItem: {
+    marginBottom: 15,
+  },
+  settingLabel: {
+    color: '#ccc',
+    fontSize: 14,
+    marginBottom: 5,
+  },
+  slider: {
+    width: '100%',
+    height: 40,
+  },
+  input: {
+    backgroundColor: '#2a2a2a',
+    color: '#fff',
+    borderRadius: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 14,
+  },
+  colorCategoryLabel: {
+    color: '#fff',
+    fontSize: 14,
+    marginVertical: 10,
+  },
+  colorPickerContainer: {
+    marginBottom: 15,
+  },
+  colorLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
+  },
+  colorLabel: {
+    color: '#ccc',
+    fontSize: 14,
+    flex: 1,
+  },
+  colorPreview: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#444',
+  },
+  colorScroll: {
+    maxHeight: 40,
+  },
+  colorGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  colorSwatch: {
+    width: 24,
+    height: 24,
+    margin: 4,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#444',
+  },
+  selectedSwatch: {
+    borderColor: '#fff',
+    borderWidth: 2,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+  button: {
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 4,
+    flex: 1,
+    alignItems: 'center',
+  },
+  buttonCancel: {
+    backgroundColor: '#444',
+    marginRight: 10,
+  },
+  buttonSave: {
+    backgroundColor: '#4CAF50',
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 14,
+  },
+});
+
+export default SettingsPanel;

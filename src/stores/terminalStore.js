@@ -1,11 +1,12 @@
 import { create } from 'zustand'
 import { nanoid } from 'nanoid/non-secure'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage } from 'zustand/middleware'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 
-// Load saved connections from localStorage
-const loadSavedConnections = () => {
+// Load saved connections from AsyncStorage
+const loadSavedConnections = async () => {
   try {
-    const savedConnections = localStorage.getItem('gaia-terminal-connections')
+    const savedConnections = await AsyncStorage.getItem('gaia-terminal-connections')
     return savedConnections ? JSON.parse(savedConnections) : {}
   } catch (error) {
     console.error('Failed to load saved connections:', error)
@@ -22,7 +23,7 @@ export const useTerminalStore = create(
   
   // Terminal settings
   fontSize: 14,
-  fontFamily: 'JetBrains Mono, monospace',
+  fontFamily: 'monospace',
   theme: {
     background: '#1a1a1a',
     foreground: '#e0e0e0',
@@ -59,7 +60,7 @@ export const useTerminalStore = create(
     username: 'user',
     hostname: 'localhost',
     path: '~',
-    nodeVersion: process.env.NODE_VERSION || 'v18.x',
+    nodeVersion: 'v18.x',
     gitBranch: '',
     gitStatus: ''
   },
@@ -237,8 +238,8 @@ export const useTerminalStore = create(
   },
   
   // Initialize with saved connections
-  initSavedConnections: () => {
-    const savedConnections = loadSavedConnections()
+  initSavedConnections: async () => {
+    const savedConnections = await loadSavedConnections()
     if (Object.keys(savedConnections).length > 0) {
       set({ sshConnections: savedConnections })
     }
@@ -251,6 +252,7 @@ export const useTerminalStore = create(
 }), 
 {
   name: 'gaia-terminal-store',
+  storage: createJSONStorage(() => AsyncStorage),
   partialize: (state) => ({
     sshConnections: Object.fromEntries(
       Object.entries(state.sshConnections).filter(([_, conn]) => conn.name && conn.name.trim() !== '')
