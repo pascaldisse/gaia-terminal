@@ -252,7 +252,14 @@ export const useTerminalStore = create(
   
   // Get saved named connections only
   getSavedNamedConnections: () => {
-    return Object.values(get().sshConnections).filter(conn => conn.name && conn.name.trim() !== '')
+    // Filter out sensitive information for display
+    return Object.values(get().sshConnections)
+      .filter(conn => conn.name && conn.name.trim() !== '')
+      .map(conn => ({
+        ...conn,
+        password: conn.password ? '••••••••' : '', // Mask password
+        privateKey: conn.privateKey ? '••••• PRIVATE KEY •••••' : '' // Mask private key
+      }))
   }
 }), 
 {

@@ -1,8 +1,8 @@
 import React from 'react';
-import { render, fireEvent, act } from '@testing-library/react-native';
-import { TextInput } from 'react-native';
+import { render, fireEvent } from '@testing-library/react-native';
 import Terminal from '../Terminal';
 import { useTerminalStore } from '../../../stores/terminalStore';
+import SSHService from '../../../services/ssh-service';
 
 // Mock the zustand store
 jest.mock('../../../stores/terminalStore', () => ({
@@ -11,9 +11,13 @@ jest.mock('../../../stores/terminalStore', () => ({
 
 // Mock the SSHService
 jest.mock('../../../services/ssh-service', () => ({
-  connect: jest.fn(),
-  disconnect: jest.fn(),
-  sendData: jest.fn()
+  __esModule: true,
+  default: {
+    connect: jest.fn(),
+    disconnect: jest.fn(),
+    sendData: jest.fn(),
+    resizeTerminal: jest.fn()
+  }
 }));
 
 describe('Terminal Component', () => {
@@ -123,5 +127,58 @@ describe('Terminal Component', () => {
     
     // Should reset input and add new prompt
     expect(input.props.value).toBe('');
+  });
+  
+  test('tab completion for commands works correctly', () => {
+    const { getByDisplayValue, getByText } = render(<Terminal id="terminal1" visible={true} />);
+    
+    // Find the TextInput component
+    const input = getByDisplayValue('');
+    
+    // Type partial command
+    fireEvent.changeText(input, 'he');
+    
+    // Press tab key
+    fireEvent(input, 'onKeyPress', { 
+      nativeEvent: { key: 'Tab' },
+      preventDefault: jest.fn()
+    });
+    
+    // Should complete the command to 'help'
+    expect(input.props.value).toBe('help');
+  });
+  
+  test('terminal responds to orientation changes', () => {
+    // Mock Dimensions
+    const originalDimensions = require('react-native').Dimensions;
+    const mockDimensions = {
+      get: jest.fn().mockReturnValue({ width: 375, height: 667 }),
+      addEventListener: jest.fn().mockReturnValue({ remove: jest.fn() })
+    };
+    
+    // Replace Dimensions with our mock
+    require('react-native').Dimensions = mockDimensions;
+    
+    render(<Terminal id="terminal1" visible={true} />);
+    
+    // Check that the dimensions event listener was set up
+    expect(mockDimensions.addEventListener).toHaveBeenCalledWith('change', expect.any(Function));
+    
+    // Restore original Dimensions
+    require('react-native').Dimensions = originalDimensions;
+  });
+  
+  test('processes clear command correctly', () => {
+    const { getByDisplayValue, queryByText } = render(<Terminal id="terminal1" visible={true} />);
+    
+    // Find the TextInput component
+    const input = getByDisplayValue('');
+    
+    // Simulate typing and submitting clear command
+    fireEvent.changeText(input, 'clear');
+    fireEvent.submitEditing(input);
+    
+    // Check that the terminal output was cleared
+    expect(queryByText('Welcome to Spaceflight Terminal!')).toBeNull();
   });
 });

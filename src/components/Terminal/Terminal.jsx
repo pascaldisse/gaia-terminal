@@ -344,13 +344,57 @@ const Terminal = ({ id, visible }) => {
       return;
     }
     
-    // Handle Tab completion (placeholder - would need actual completion logic)
+    // Handle Tab completion
     if (key === 'Tab' || code === 'Tab' || keyCode === 9) {
       // Prevent default tab behavior (focus change)
       e.preventDefault?.();
       
-      // Placeholder for tab completion
-      console.log('Tab completion would happen here');
+      if (input.trim()) {
+        // Get current word being typed
+        const words = input.split(' ');
+        const currentWord = words[words.length - 1];
+        
+        // Get command suggestions based on context
+        let suggestions = [];
+        
+        // If this is the first word (command), suggest from available commands
+        if (words.length === 1) {
+          const commands = ['help', 'clear', 'echo', 'cd', 'ls', 'pwd', 'debug', 'exit'];
+          suggestions = commands.filter(cmd => cmd.startsWith(currentWord.toLowerCase()));
+        } 
+        // If command is 'cd', suggest directories
+        else if (words[0] === 'cd') {
+          // Simulate directory suggestions based on current path
+          let dirs = [];
+          
+          if (environment.path === '~' || environment.path === '/home/user') {
+            dirs = ['Documents/', 'Downloads/', 'Pictures/', 'Projects/'];
+          } else if (environment.path === '/') {
+            dirs = ['bin/', 'etc/', 'home/', 'usr/', 'var/'];
+          } else if (environment.path.includes('Projects')) {
+            dirs = ['gaia-terminal-mobile/', 'personal-site/', 'react-app/'];
+          } else {
+            dirs = ['folder1/', 'folder2/'];
+          }
+          
+          suggestions = dirs.filter(dir => dir.toLowerCase().startsWith(currentWord.toLowerCase()));
+        }
+        
+        // Apply completion if we have exactly one match
+        if (suggestions.length === 1) {
+          words[words.length - 1] = suggestions[0];
+          setInput(words.join(' '));
+        } 
+        // Show options if we have multiple matches
+        else if (suggestions.length > 1) {
+          // Add command to output display
+          setOutput(prev => [
+            ...prev,
+            { text: `${generatePrompt()}${input}`, type: 'input' },
+            { text: suggestions.join('  '), type: 'system' }
+          ]);
+        }
+      }
       return;
     }
   };
@@ -364,7 +408,7 @@ const Terminal = ({ id, visible }) => {
     }
   }, [visible]);
 
-  // Set up key event handling
+  // Set up key event handling and orientation changes
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
       'keyboardDidShow',
@@ -384,15 +428,36 @@ const Terminal = ({ id, visible }) => {
       }
     );
     
+    // Handle terminal resize on orientation change or window resize
+    const handleResize = () => {
+      const { width, height } = Dimensions.get('window');
+      const cols = Math.floor(width / (fontSize * 0.6));
+      const rows = Math.floor(height / fontSize);
+      
+      if (debugMode) {
+        console.log('Terminal resize:', { cols, rows, width, height });
+      }
+      
+      // If we have an active SSH connection, send resize info
+      if (sshActive && wsRef) {
+        SSHService.resizeTerminal(wsRef, cols, rows);
+      }
+    };
+    
+    // Create listener for dimension changes
+    const dimensionsListener = Dimensions.addEventListener('change', handleResize);
+    
     return () => {
       keyboardDidShowListener.remove();
       keyboardDidHideListener.remove();
+      dimensionsListener.remove();
+      
       // Close SSH connection if open when component unmounts
       if (wsRef && sshActive) {
         SSHService.disconnect(wsRef);
       }
     };
-  }, [debugMode, wsRef, sshActive]);
+  }, [debugMode, wsRef, sshActive, fontSize]);
 
   // Text color map
   const textColorMap = {

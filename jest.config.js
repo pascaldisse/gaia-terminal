@@ -16,7 +16,7 @@ module.exports = {
   setupFiles: [
     './jest.setup.js',
   ],
-  testEnvironment: 'node',
+  testEnvironment: 'jsdom',
   roots: ['<rootDir>/src'],
   collectCoverageFrom: [
     'src/**/*.{js,jsx,ts,tsx}',

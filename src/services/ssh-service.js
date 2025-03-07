@@ -120,6 +120,31 @@ class SSHService {
   }
   
   /**
+   * Resize the terminal for an active SSH connection
+   * 
+   * @param {string} connectionId - The connection ID 
+   * @param {number} cols - New number of columns
+   * @param {number} rows - New number of rows
+   * @returns {boolean} - Success status
+   */
+  resizeTerminal(connectionId, cols, rows) {
+    const connection = this.connections[connectionId];
+    if (!connection || !connection.ws) return false;
+    
+    try {
+      connection.ws.send(JSON.stringify({
+        type: 'resize',
+        cols,
+        rows
+      }));
+      return true;
+    } catch (error) {
+      console.error('Failed to resize terminal:', error);
+      return false;
+    }
+  }
+  
+  /**
    * Check if a connection is active
    * 
    * @param {string} connectionId - The connection ID

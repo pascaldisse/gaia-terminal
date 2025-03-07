@@ -7,9 +7,102 @@ import {
   TouchableOpacity,
   ScrollView,
   TextInput,
-  Slider
+  Slider,
+  FlatList
 } from 'react-native';
 import { useTerminalStore } from '../../stores/terminalStore';
+
+// Preset themes
+const presetThemes = {
+  'Dark Solarized': {
+    background: '#002b36',
+    foreground: '#839496',
+    cursor: '#93a1a1',
+    selection: 'rgba(147, 161, 161, 0.3)',
+    black: '#073642',
+    red: '#dc322f',
+    green: '#859900',
+    yellow: '#b58900',
+    blue: '#268bd2',
+    magenta: '#d33682',
+    cyan: '#2aa198',
+    white: '#eee8d5',
+    brightBlack: '#002b36',
+    brightRed: '#cb4b16',
+    brightGreen: '#586e75',
+    brightYellow: '#657b83',
+    brightBlue: '#839496',
+    brightMagenta: '#6c71c4',
+    brightCyan: '#93a1a1',
+    brightWhite: '#fdf6e3'
+  },
+  'Light Solarized': {
+    background: '#fdf6e3',
+    foreground: '#657b83',
+    cursor: '#586e75',
+    selection: 'rgba(88, 110, 117, 0.3)',
+    black: '#073642',
+    red: '#dc322f',
+    green: '#859900',
+    yellow: '#b58900',
+    blue: '#268bd2',
+    magenta: '#d33682',
+    cyan: '#2aa198',
+    white: '#eee8d5',
+    brightBlack: '#002b36',
+    brightRed: '#cb4b16',
+    brightGreen: '#586e75',
+    brightYellow: '#657b83',
+    brightBlue: '#839496',
+    brightMagenta: '#6c71c4',
+    brightCyan: '#93a1a1',
+    brightWhite: '#fdf6e3'
+  },
+  'Monokai': {
+    background: '#272822',
+    foreground: '#f8f8f2',
+    cursor: '#f8f8f0',
+    selection: 'rgba(73, 72, 62, 0.5)',
+    black: '#272822',
+    red: '#f92672',
+    green: '#a6e22e',
+    yellow: '#f4bf75',
+    blue: '#66d9ef',
+    magenta: '#ae81ff',
+    cyan: '#a1efe4',
+    white: '#f8f8f2',
+    brightBlack: '#75715e',
+    brightRed: '#f92672',
+    brightGreen: '#a6e22e',
+    brightYellow: '#f4bf75',
+    brightBlue: '#66d9ef',
+    brightMagenta: '#ae81ff',
+    brightCyan: '#a1efe4',
+    brightWhite: '#f9f8f5'
+  },
+  'Nord': {
+    background: '#2e3440',
+    foreground: '#d8dee9',
+    cursor: '#d8dee9',
+    selection: 'rgba(67, 76, 94, 0.5)',
+    black: '#3b4252',
+    red: '#bf616a',
+    green: '#a3be8c',
+    yellow: '#ebcb8b',
+    blue: '#81a1c1',
+    magenta: '#b48ead',
+    cyan: '#88c0d0',
+    white: '#e5e9f0',
+    brightBlack: '#4c566a',
+    brightRed: '#bf616a',
+    brightGreen: '#a3be8c',
+    brightYellow: '#ebcb8b',
+    brightBlue: '#81a1c1',
+    brightMagenta: '#b48ead',
+    brightCyan: '#8fbcbb',
+    brightWhite: '#eceff4'
+  }
+};
 
 // Color picker component
 const ColorPicker = ({ color, onColorChange, label }) => {
@@ -136,6 +229,42 @@ function SettingsPanel({ onClose }) {
             
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Terminal Colors</Text>
+              
+              <View style={styles.presetThemesContainer}>
+                <Text style={styles.settingLabel}>Preset Themes</Text>
+                <ScrollView 
+                  horizontal 
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.presetThemesScroll}
+                >
+                  {Object.entries(presetThemes).map(([name, theme]) => (
+                    <TouchableOpacity
+                      key={name}
+                      style={[
+                        styles.presetThemeItem,
+                        { backgroundColor: theme.background }
+                      ]}
+                      onPress={() => setSettings(prev => ({
+                        ...prev,
+                        theme: { ...theme }
+                      }))}
+                    >
+                      <View style={styles.presetThemeColors}>
+                        <View style={[styles.themeColorSample, { backgroundColor: theme.red }]} />
+                        <View style={[styles.themeColorSample, { backgroundColor: theme.green }]} />
+                        <View style={[styles.themeColorSample, { backgroundColor: theme.yellow }]} />
+                        <View style={[styles.themeColorSample, { backgroundColor: theme.blue }]} />
+                      </View>
+                      <Text style={[
+                        styles.presetThemeName,
+                        { color: theme.foreground }
+                      ]}>
+                        {name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
               
               <ColorPicker
                 label="Background"
@@ -295,6 +424,41 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     fontSize: 14,
   },
+  // Preset themes styles
+  presetThemesContainer: {
+    marginBottom: 20,
+  },
+  presetThemesScroll: {
+    flexDirection: 'row',
+  },
+  presetThemeItem: {
+    width: 120,
+    height: 80,
+    marginRight: 10,
+    borderRadius: 6,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#444',
+    justifyContent: 'space-between',
+  },
+  presetThemeColors: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  themeColorSample: {
+    width: 18,
+    height: 18,
+    borderRadius: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  presetThemeName: {
+    marginTop: 12,
+    fontSize: 12,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  // Color picker styles
   colorCategoryLabel: {
     color: '#fff',
     fontSize: 14,
