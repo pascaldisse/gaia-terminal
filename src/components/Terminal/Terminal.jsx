@@ -3,7 +3,7 @@ import {
   View, 
   Text, 
   StyleSheet, 
-  ScrollView, 
+  FlatList, 
   TextInput,
   TouchableOpacity, 
   Keyboard, 
@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { useTerminalStore } from '../../stores/terminalStore';
 import SSHService from '../../services/ssh-service';
+import CommandHistorySearch from './CommandHistorySearch';
+import KeyboardShortcutsHelp from './KeyboardShortcutsHelp';
 
 const Terminal = ({ id, visible }) => {
   const scrollViewRef = useRef(null);
@@ -23,6 +25,8 @@ const Terminal = ({ id, visible }) => {
   ]);
   const [wsRef, setWsRef] = useState(null);
   const [sshActive, setSshActive] = useState(false);
+  const [historySearchVisible, setHistorySearchVisible] = useState(false);
+  const [shortcutsVisible, setShortcutsVisible] = useState(false);
   
   const {
     fontSize,
@@ -66,8 +70,22 @@ const Terminal = ({ id, visible }) => {
       return;
     }
     
+    // Resolve aliases
+    let resolvedCommand = command;
+    if (useTerminalStore.getState().resolveAlias) {
+      resolvedCommand = useTerminalStore.getState().resolveAlias(command);
+      
+      // If command was aliased and is different, show what it resolved to
+      if (resolvedCommand !== command) {
+        setOutput(prev => [
+          ...prev,
+          { text: `alias: ${resolvedCommand}`, type: 'system' }
+        ]);
+      }
+    }
+    
     // Process local commands
-    const args = command.trim().split(' ');
+    const args = resolvedCommand.trim().split(' ');
     const cmd = args[0].toLowerCase();
     
     switch (cmd) {
@@ -81,6 +99,8 @@ const Terminal = ({ id, visible }) => {
           { text: '  cd [path]   - Change directory (simulated)', type: 'output' },
           { text: '  ls          - List files (simulated)', type: 'output' },
           { text: '  pwd         - Print working directory', type: 'output' },
+          { text: '  alias       - List command aliases', type: 'output' },
+          { text: '  shortcuts   - Show keyboard shortcuts', type: 'output' },
           { text: '  debug       - Toggle debug mode for keyboard input', type: 'output' },
           { text: '  exit        - Close current SSH connection or tab', type: 'output' },
           { text: '', type: 'output' }
@@ -150,6 +170,30 @@ const Terminal = ({ id, visible }) => {
           ...prev,
           { text: displayPath, type: 'output' }
         ]);
+        break;
+        
+      case 'alias':
+        const aliases = useTerminalStore.getState().commandAliases();
+        if (Object.keys(aliases).length === 0) {
+          setOutput(prev => [
+            ...prev,
+            { text: 'No aliases defined.', type: 'output' }
+          ]);
+        } else {
+          setOutput(prev => [
+            ...prev,
+            { text: 'Defined aliases:', type: 'output' },
+            ...Object.entries(aliases).map(([name, cmd]) => ({
+              text: `  ${name.padEnd(15)} ${cmd}`,
+              type: 'output'
+            })),
+            { text: '', type: 'output' }
+          ]);
+        }
+        break;
+        
+      case 'shortcuts':
+        setShortcutsVisible(true);
         break;
         
       case 'debug':
@@ -277,12 +321,8 @@ const Terminal = ({ id, visible }) => {
     setWsRef(connectionId);
   };
 
-  // Autoscroll to bottom when output changes
-  useEffect(() => {
-    setTimeout(() => {
-      scrollViewRef.current?.scrollToEnd({ animated: true });
-    }, 100);
-  }, [output]);
+  // No need for a separate autoscroll effect since we're using FlatList with 
+  // onContentSizeChange and onLayout to handle scrolling to the end
 
   // Handle command submission
   const handleSubmit = () => {
@@ -341,6 +381,12 @@ const Terminal = ({ id, visible }) => {
     // Handle Ctrl+L to clear screen
     if ((ctrlKey && (key === 'l' || code === 'KeyL' || keyCode === 76))) {
       setOutput([]);
+      return;
+    }
+    
+    // Handle Ctrl+R to search command history
+    if ((ctrlKey && (key === 'r' || code === 'KeyR' || keyCode === 82))) {
+      setHistorySearchVisible(true);
       return;
     }
     
@@ -469,16 +515,43 @@ const Terminal = ({ id, visible }) => {
 
   if (!visible) return null;
 
+  // Handle command selected from history search
+  const handleCommandSelected = (command) => {
+    setInput(command);
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 100);
+  };
+
+  // Show keyboard shortcuts help
+  const showKeyboardShortcuts = () => {
+    setShortcutsVisible(true);
+  };
+
   return (
     <View style={styles.container}>
-      <ScrollView
+      {/* Command history search overlay */}
+      <CommandHistorySearch
+        terminalId={id}
+        visible={historySearchVisible}
+        onClose={() => setHistorySearchVisible(false)}
+        onSelectCommand={handleCommandSelected}
+      />
+      
+      {/* Keyboard shortcuts help modal */}
+      <KeyboardShortcutsHelp
+        visible={shortcutsVisible}
+        onClose={() => setShortcutsVisible(false)}
+      />
+      
+      <FlatList
         ref={scrollViewRef}
         style={[styles.outputContainer, { backgroundColor: theme.background }]}
         contentContainerStyle={styles.outputContent}
-      >
-        {output.map((line, index) => (
+        data={output}
+        keyExtractor={(_, index) => `line-${index}`}
+        renderItem={({ item: line }) => (
           <Text
-            key={index}
             style={[
               styles.outputText,
               { 
@@ -490,8 +563,13 @@ const Terminal = ({ id, visible }) => {
           >
             {line.text}
           </Text>
-        ))}
-      </ScrollView>
+        )}
+        windowSize={10}
+        maxToRenderPerBatch={20}
+        initialNumToRender={30}
+        onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
+        onLayout={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
+      />
       
       <View style={styles.inputContainer}>
         <Text style={[
@@ -551,17 +629,33 @@ const Terminal = ({ id, visible }) => {
         />
       </View>
       
-      <TouchableOpacity 
-        style={[
-          styles.keyboardControl,
-          debugMode ? { backgroundColor: 'rgba(0, 150, 0, 0.7)' } : {}
-        ]}
-        onPress={() => Keyboard.dismiss()}
-      >
-        <Text style={styles.keyboardControlText}>
-          {debugMode ? 'Debug: ON - Hide Keyboard' : 'Hide Keyboard'}
-        </Text>
-      </TouchableOpacity>
+      <View style={styles.controlsContainer}>
+        <TouchableOpacity 
+          style={[styles.controlButton, styles.helpButton]}
+          onPress={showKeyboardShortcuts}
+        >
+          <Text style={styles.controlButtonText}>?</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.controlButton, styles.searchButton]}
+          onPress={() => setHistorySearchVisible(true)}
+        >
+          <Text style={styles.controlButtonText}>↑</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[
+            styles.keyboardControl,
+            debugMode ? { backgroundColor: 'rgba(0, 150, 0, 0.7)' } : {}
+          ]}
+          onPress={() => Keyboard.dismiss()}
+        >
+          <Text style={styles.keyboardControlText}>
+            {debugMode ? 'Debug: ON - Hide Keyboard' : 'Hide Keyboard'}
+          </Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -602,10 +696,33 @@ const styles = StyleSheet.create({
     padding: 4,
     color: '#fff',
   },
-  keyboardControl: {
+  controlsContainer: {
     position: 'absolute',
     bottom: 10,
     right: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  controlButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  helpButton: {
+    backgroundColor: 'rgba(0, 122, 255, 0.7)',
+  },
+  searchButton: {
+    backgroundColor: 'rgba(80, 80, 80, 0.7)',
+  },
+  controlButtonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  keyboardControl: {
     backgroundColor: 'rgba(100, 100, 100, 0.7)',
     paddingVertical: 8,
     paddingHorizontal: 12,

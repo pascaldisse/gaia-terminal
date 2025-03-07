@@ -48,6 +48,13 @@ export const useTerminalStore = create(
     brightWhite: '#fdf6e3'
   },
   
+  // Command aliases
+  aliases: {
+    'ls': 'ls -F',
+    'll': 'ls -la',
+    'cls': 'clear',
+  },
+  
   // Command history
   commandHistory: {},
   historyIndex: {},
@@ -188,6 +195,11 @@ export const useTerminalStore = create(
     }))
   },
   
+  // Get all command history for a terminal
+  getCommandHistory: (tabId) => {
+    return get().commandHistory[tabId] || [];
+  },
+  
   // Settings
   updateSettings: (settings) => {
     set(state => ({ ...state, ...settings }))
@@ -260,6 +272,89 @@ export const useTerminalStore = create(
         password: conn.password ? '••••••••' : '', // Mask password
         privateKey: conn.privateKey ? '••••• PRIVATE KEY •••••' : '' // Mask private key
       }))
+  },
+  
+  // Export settings to JSON-friendly object
+  exportSettings: () => {
+    const state = get();
+    return {
+      fontSize: state.fontSize,
+      fontFamily: state.fontFamily,
+      theme: state.theme,
+      // Export SSH connections without sensitive data
+      sshConnections: Object.values(state.sshConnections)
+        .filter(conn => conn.name && conn.name.trim() !== '')
+        .map(({ password, privateKey, ...rest }) => rest)
+    };
+  },
+  
+  // Import settings from exported object
+  importSettings: (settings) => {
+    try {
+      // Validate settings format
+      if (!settings || typeof settings !== 'object') {
+        return { success: false, error: 'Invalid settings format' };
+      }
+      
+      // Check required fields
+      if (!settings.theme || typeof settings.theme !== 'object') {
+        return { success: false, error: 'Invalid theme settings' };
+      }
+      
+      // Apply settings
+      set(state => ({
+        fontSize: settings.fontSize || state.fontSize,
+        fontFamily: settings.fontFamily || state.fontFamily,
+        theme: { ...state.theme, ...settings.theme },
+        aliases: settings.aliases || state.aliases
+      }));
+      
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: 'Failed to apply settings' };
+    }
+  },
+  
+  // Command aliases functions
+  commandAliases: () => {
+    return get().aliases || {};
+  },
+  
+  addCommandAlias: (name, command) => {
+    set(state => ({
+      aliases: {
+        ...state.aliases,
+        [name]: command
+      }
+    }));
+  },
+  
+  removeCommandAlias: (name) => {
+    set(state => {
+      const { [name]: _, ...remainingAliases } = state.aliases;
+      return { aliases: remainingAliases };
+    });
+  },
+  
+  // Get command from alias if exists
+  resolveAlias: (command) => {
+    const aliases = get().aliases || {};
+    const [firstWord, ...args] = command.split(' ');
+    
+    if (aliases[firstWord]) {
+      // Replace alias with its command
+      const aliasCommand = aliases[firstWord];
+      
+      // If there are args, append them to the alias command
+      if (args.length > 0) {
+        return `${aliasCommand} ${args.join(' ')}`;
+      }
+      
+      return aliasCommand;
+    }
+    
+    // Not an alias, return original command
+    return command;
   }
 }), 
 {
