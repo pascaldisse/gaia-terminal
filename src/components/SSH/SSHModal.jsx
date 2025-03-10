@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import styled from 'styled-components'
 import { useTerminalStore } from '../../stores/terminalStore'
 
@@ -31,6 +31,10 @@ const ModalContent = styled.div`
     padding: 12px;
     max-height: 85vh;
     margin: 8px;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
   }
 `
 
@@ -290,6 +294,7 @@ function SSHModal({ onClose }) {
   const [formError, setFormError] = useState('')
   const [activeView, setActiveView] = useState('new') // 'new' or 'saved'
   const [savedConnections, setSavedConnections] = useState([])
+  const modalRef = useRef(null)
   
   const { 
     sshConnections, 
@@ -306,6 +311,42 @@ function SSHModal({ onClose }) {
     const connections = getSavedNamedConnections()
     setSavedConnections(connections)
   }, [sshConnections, getSavedNamedConnections])
+  
+  // Handle mobile keyboard visibility
+  useEffect(() => {
+    function handleFocus() {
+      // Add class to body when input is focused (keyboard appears)
+      document.body.classList.add('keyboard-visible');
+      
+      // Scroll the modal to ensure the focused input is visible
+      if (document.activeElement.tagName === 'INPUT' && modalRef.current) {
+        setTimeout(() => {
+          document.activeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
+      }
+    }
+    
+    function handleBlur() {
+      // Remove class when input loses focus (keyboard disappears)
+      document.body.classList.remove('keyboard-visible');
+    }
+    
+    // Add event listeners to all inputs in the modal
+    const inputs = modalRef.current?.querySelectorAll('input');
+    inputs?.forEach(input => {
+      input.addEventListener('focus', handleFocus);
+      input.addEventListener('blur', handleBlur);
+    });
+    
+    return () => {
+      // Clean up event listeners
+      inputs?.forEach(input => {
+        input.removeEventListener('focus', handleFocus);
+        input.removeEventListener('blur', handleBlur);
+      });
+      document.body.classList.remove('keyboard-visible');
+    };
+  }, [activeView]);
   
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
@@ -421,7 +462,7 @@ function SSHModal({ onClose }) {
   
   return (
     <ModalOverlay onClick={onClose}>
-      <ModalContent onClick={e => e.stopPropagation()}>
+      <ModalContent ref={modalRef} onClick={e => e.stopPropagation()}>
         <ModalHeader>
           <ModalTitle>SSH Connection</ModalTitle>
           <CloseButton onClick={onClose}>×</CloseButton>

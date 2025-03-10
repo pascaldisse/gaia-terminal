@@ -247,6 +247,24 @@ export const useTerminalStore = create(
   // Get saved named connections only
   getSavedNamedConnections: () => {
     return Object.values(get().sshConnections).filter(conn => conn.name && conn.name.trim() !== '')
+  },
+  
+  // Inject text into the terminal
+  injectTextAction: null,
+  
+  // Set the inject text action (registered by the Terminal component)
+  setInjectTextAction: (action) => {
+    set({ injectTextAction: action })
+  },
+  
+  // Call the inject text action
+  injectText: (text) => {
+    const action = get().injectTextAction
+    if (action) {
+      action(text)
+      return true
+    }
+    return false
   }
 }), 
 {

@@ -71,6 +71,19 @@ body {
   html {
     height: -webkit-fill-available;
   }
+
+  /* Adjust for virtual keyboard */
+  @supports (-webkit-touch-callout: none) {
+    /* iOS devices */
+    .terminal-container {
+      height: -webkit-fill-available;
+    }
+    
+    /* Make sure the viewport resizes with keyboard */
+    body.keyboard-visible {
+      height: -webkit-fill-available;
+    }
+  }
 }
 
 button {

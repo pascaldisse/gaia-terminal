@@ -57,6 +57,37 @@ function App() {
     if (tabs.length === 0) {
       addTab('Local Terminal')
     }
+    
+    // Add meta viewport tag for better mobile keyboard handling
+    const viewportMeta = document.querySelector('meta[name="viewport"]');
+    if (viewportMeta) {
+      viewportMeta.content = 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover';
+    } else {
+      const meta = document.createElement('meta');
+      meta.name = 'viewport';
+      meta.content = 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover';
+      document.head.appendChild(meta);
+    }
+    
+    // Handle virtual keyboard detection
+    const handleVisualViewportResize = () => {
+      const viewport = window.visualViewport;
+      if (viewport) {
+        // When keyboard appears, the visual viewport height becomes smaller than window innerHeight
+        const isKeyboardVisible = viewport.height < window.innerHeight * 0.8;
+        document.body.classList.toggle('keyboard-visible', isKeyboardVisible);
+      }
+    };
+    
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleVisualViewportResize);
+    }
+    
+    return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', handleVisualViewportResize);
+      }
+    };
   }, [tabs, addTab, initSavedConnections])
 
   return (

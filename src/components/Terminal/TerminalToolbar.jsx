@@ -154,7 +154,8 @@ function TerminalToolbar({ onSettingsClick, onSSHClick }) {
   const { 
     getSavedNamedConnections, 
     addTab, 
-    setActiveConnection 
+    setActiveConnection,
+    injectText
   } = useTerminalStore()
   
   const [savedConnections, setSavedConnections] = useState([])
@@ -194,6 +195,27 @@ function TerminalToolbar({ onSettingsClick, onSSHClick }) {
     }
   }
   
+  const handleGaiaAppShortcut = () => {
+    const commandText = "cd ../var/www/gaia-app && claude\r"
+    
+    // Try to copy to clipboard if the API is available
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      // Modern browsers with clipboard API support
+      navigator.clipboard.writeText("cd ../var/www/gaia-app && claude")
+        .then(() => {
+          console.log("Command copied to clipboard");
+        })
+        .catch(err => {
+          console.error("Clipboard write failed:", err);
+        });
+    } else {
+      console.log("Clipboard API not available in this browser/environment");
+    }
+    
+    // Always inject text into the terminal regardless of clipboard success
+    injectText(commandText);
+  }
+  
   const connectToSaved = (connection) => {
     // Create a new tab for this connection
     const tabName = `SSH: ${connection.username}@${connection.host}`
@@ -213,6 +235,20 @@ function TerminalToolbar({ onSettingsClick, onSSHClick }) {
       <ToolbarTitle>Gaia Terminal</ToolbarTitle>
       
       <ToolbarActions>
+        {/* Gaia App Shortcut Button */}
+        <ToolbarButton 
+          onClick={handleGaiaAppShortcut}
+          title="Launch Gaia App"
+          style={{ backgroundColor: '#5c636c' }}
+        >
+          <IconWrapper>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 10l5 5l-5 5" />
+              <path d="M4 4v7a4 4 0 0 0 4 4h12" />
+            </svg>
+          </IconWrapper>
+        </ToolbarButton>
+      
         {/* Quick Connect Button */}
         <ToolbarButton 
           onClick={toggleQuickConnect} 

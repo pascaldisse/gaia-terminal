@@ -25,6 +25,14 @@ const TerminalContainer = styled.div`
     width: 100%;
     bottom: 0;
     position: absolute;
+    
+    /* Handle virtual keyboard */
+    body.keyboard-visible & {
+      height: -webkit-fill-available;
+      position: absolute;
+      top: 0;
+      bottom: auto;
+    }
   }
 `
 
@@ -72,7 +80,8 @@ function Terminal({ id, visible }) {
     environment,
     updateEnvironment,
     activeConnections,
-    sshConnections
+    sshConnections,
+    setInjectTextAction
   } = useTerminalStore()
 
   // Initialize terminal
@@ -144,7 +153,17 @@ function Terminal({ id, visible }) {
           if (fitAddonRef.current) {
             fitAddonRef.current.fit()
           }
-        }, 300)
+        }, 300);
+        
+        // Handle virtual keyboard specifically
+        if (document.body.classList.contains('keyboard-visible')) {
+          // Do an additional fit with more delay for virtual keyboard
+          setTimeout(() => {
+            if (fitAddonRef.current) {
+              fitAddonRef.current.fit();
+            }
+          }, 600);
+        }
       }
     }
     window.addEventListener('resize', handleResize)
@@ -187,6 +206,46 @@ function Terminal({ id, visible }) {
       }, 10)
     }
   }, [visible])
+  
+  // Register text injection function
+  useEffect(() => {
+    // Only register when this terminal is visible
+    if (visible && xtermRef.current) {
+      const injectText = (text) => {
+        if (!xtermRef.current) return false
+        
+        // If we're in SSH mode, send to the SSH connection
+        if (sshActiveRef.current && wsRef.current) {
+          wsRef.current.send(JSON.stringify({
+            type: 'data',
+            data: text
+          }))
+        } else {
+          // Otherwise, write to the terminal directly
+          // Delete current input
+          const currentInput = inputRef.current
+          if (currentInput.length > 0) {
+            xtermRef.current.write('\b \b'.repeat(currentInput.length))
+          }
+          
+          // Write the new text
+          xtermRef.current.write(text)
+          inputRef.current = text
+        }
+        return true
+      }
+      
+      // Register this function with the store
+      setInjectTextAction(injectText)
+    }
+    
+    return () => {
+      // Clear the injection function when unmounting or becoming invisible
+      if (visible) {
+        setInjectTextAction(null)
+      }
+    }
+  }, [visible, setInjectTextAction])
 
   // Handle SSH connection changes
   useEffect(() => {
