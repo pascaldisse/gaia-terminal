@@ -1,179 +1,174 @@
-# Spaceflight Terminal User Guide
+# Gaia Terminal User Guide
 
-Welcome to Spaceflight Terminal, a modern web and mobile terminal with spaceship-prompt inspired design!
-
-![Spaceflight Terminal](https://github.com/spaceship-prompt/spaceship-prompt/raw/master/preview.gif)
+Welcome to Gaia Terminal, a modern cross-platform terminal emulator built with Flutter!
 
 ## Getting Started
 
 ### Opening a Terminal
 
-When you first launch Spaceflight Terminal, you'll be greeted with a welcome screen. Click the "New Terminal" button to open your first terminal session.
+When you first launch Gaia Terminal, you'll be greeted with a clean interface. A new terminal session is automatically created for you. You can create additional terminal sessions at any time by:
 
-You can also create a new terminal tab at any time by:
-- Clicking the "New Terminal" button in the toolbar
-- Clicking the "+" icon in the tabs bar
+- Clicking the "+" icon in the toolbar or tabs bar
+- Using the keyboard shortcut Ctrl+T (Cmd+T on macOS)
 
 ### Terminal Interface
 
-The terminal interface consists of several components:
+The terminal interface consists of these main components:
 
 1. **Toolbar**: Contains actions for creating new terminals, opening SSH connections, and accessing settings
 2. **Tabs Bar**: Shows all open terminal sessions and allows switching between them
 3. **Terminal Window**: The main terminal interface where you can enter commands
-4. **Spaceship Prompt**: The multi-line prompt showing context information
+4. **Split View**: Optional feature to divide the terminal into multiple panes
 
-### The Spaceship Prompt
+### Terminal Features
 
-The terminal features a spaceship-style prompt with multiple sections:
+Gaia Terminal provides a complete terminal experience with:
 
-```
-┌─[username@hostname] in ~/path/to/directory on ⎇ main [⚑]
-├─[⬢ v18.12.1] [⏱ took 2.5s] [✓]
-└─➜ 
-```
+- Native shell access on desktop platforms (Windows, macOS, Linux)
+- SSH connectivity for remote server access
+- Multiple color themes (Dracula, Monokai, Solarized, Nord)
+- Tab-based interface for multiple sessions
+- Command history navigation
+- Split terminal views for efficient multitasking
+- SFTP capabilities for file transfers
 
-The prompt contains:
-- **User & Host**: Shows current username and hostname
-- **Directory**: Shows current working directory
-- **Git Information**: Shows git branch and status when in a git repository
-- **Node.js Version**: Shows Node.js version for applicable projects
-- **Execution Time**: Shows execution time for commands that take longer than 2 seconds
-- **Exit Status**: Shows ✓ for successful commands, ✗ for errors
+## Terminal Sessions
 
-## Available Commands
+### Local Shell Sessions
 
-Spaceflight Terminal supports a variety of commands:
+On desktop platforms (Windows, macOS, Linux), Gaia Terminal connects directly to your system's shell:
 
-### Basic Commands
+- Windows: PowerShell or Command Prompt (based on system default)
+- macOS: Bash, Zsh, or other configured shell
+- Linux: Bash, Zsh, or other configured shell
 
-| Command | Description |
-|---------|-------------|
-| `help` | Display available commands |
-| `clear` | Clear the terminal screen |
-| `cd <path>` | Change directory |
-| `ls` | List files in current directory |
-| `pwd` | Print working directory |
-| `echo <text>` | Display text |
-| `date` | Display current date and time |
-| `whoami` | Display current user |
-| `history` | Display command history |
-| `history -c` | Clear command history |
+All normal shell commands and functionality work exactly as they would in your system's native terminal.
 
-### Git Commands
+### SSH Sessions
 
-| Command | Description |
-|---------|-------------|
-| `git status` | Show Git repository status |
-| `git checkout <branch>` | Switch to another branch |
-
-### Node.js Commands
-
-| Command | Description |
-|---------|-------------|
-| `node` | Start Node.js REPL |
-| `node -v` | Display Node.js version |
-| `npm install <package>` | Install an npm package |
-| `npm run <script>` | Run an npm script |
-
-### SSH Commands
-
-| Command | Description |
-|---------|-------------|
-| `ssh <user>@<host>` | Connect to remote server via SSH |
-| `ssh <host>` | Connect to remote server with default user |
-| `ssh <user>@<host> -p <port>` | Connect to remote server on specific port |
-
-## SSH Connections
-
-### Connecting to SSH
-
-You can connect to SSH servers in two ways:
+You can connect to remote servers via SSH in two ways:
 
 1. **Command Line**: Type `ssh username@hostname` in the terminal
-2. **SSH Modal**: Click the "SSH" button in the toolbar and fill in connection details
+2. **SSH Dialog**: Click the "SSH" button in the toolbar and fill in connection details
 
-### SSH Modal Features
+### SSH Dialog Features
 
-The SSH connection modal provides:
+The SSH connection dialog provides:
 - Connection details input (hostname, username, port)
 - Password and private key authentication options
-- Saved connection management
-- Option to remember credentials
+- Saved connection management with secure credential storage
+- SFTP file browser for remote file access and transfer
 
 ### SSH Session Management
 
-While in an SSH session:
-- The terminal tab will show the connection details
-- Type `exit` or `logout` to disconnect from the SSH server
-- Use all normal SSH commands as you would in a regular terminal
+During an SSH session:
+- The terminal tab will display the connection details
+- Type `exit` or press Ctrl+D to disconnect from the SSH server
+- Use all standard SSH commands and functionality
 
 ## Command History
 
-Command history is saved between sessions. You can:
-- Press the up/down arrow keys to navigate through previous commands
-- Type `history` to see all saved commands
-- Type `history -c` to clear command history
+Command history is preserved between sessions. You can:
+- Press Up/Down arrow keys to navigate through previous commands
+- Use Ctrl+R to search command history
+- Access history specific to each terminal tab
 
 ## Keyboard Shortcuts
 
 | Shortcut | Action |
 |----------|--------|
-| Up/Down Arrow | Navigate command history |
-| Left/Right Arrow | Move cursor within the current line |
-| Ctrl+C | Interrupt the current command |
-| Ctrl+L | Clear the screen (same as `clear` command) |
-| Ctrl+D | Exit current shell (when in SSH session) |
+| Ctrl+T / Cmd+T | New terminal tab |
+| Ctrl+W / Cmd+W | Close current tab |
+| Ctrl+Tab | Next tab |
+| Ctrl+Shift+Tab | Previous tab |
+| Ctrl+Shift+S | Split terminal view |
+| Ctrl+Shift+D | Toggle split orientation |
+| Ctrl+C | Interrupt current process |
+| Ctrl+L | Clear the screen |
+| Ctrl+D | Send EOF / Close SSH connection |
+| Ctrl+R | Search command history |
+| Ctrl+Shift+F | Find in terminal |
+| Ctrl+= / Cmd+= | Increase font size |
+| Ctrl+- / Cmd+- | Decrease font size |
+| F11 | Toggle fullscreen |
 
-## Tips & Tricks
+## Terminal Customization
 
-1. **SSH Password Caching**: Passwords for SSH connections are securely cached, allowing for quick reconnection to frequently used servers.
+Gaia Terminal can be customized through the Settings panel:
 
-2. **Command Auto-detection**: The terminal can detect various environments (Git repositories, Node.js projects) and display contextual information.
+### Appearance Settings
+- **Theme**: Choose between Dracula, Monokai, Solarized, and Nord themes
+- **Font**: Select font family and size
+- **Cursor**: Configure cursor style (block, underline, or bar)
 
-3. **Long-running Commands**: For commands that take longer than 2 seconds, the terminal will display the execution time in the prompt.
+### Terminal Settings
+- **Scrollback**: Adjust the number of lines preserved in history
+- **Tab Behavior**: Configure how tabs are created and managed
+- **Terminal Bell**: Enable or disable the terminal bell sound
+- **Copy on Select**: Automatically copy selected text
 
-4. **Multiple Sessions**: Use tabs to manage multiple terminal sessions or SSH connections simultaneously.
+### Keyboard Settings
+- **Shortcuts**: View and customize keyboard shortcuts
+- **Key Mapping**: Configure special key behavior
 
-5. **Tab Naming**: SSH tabs are automatically named based on the connection details for easy identification.
+## Split Terminal View
 
-## Mobile-Specific Features
+Gaia Terminal supports splitting the terminal window for multitasking:
 
-When using the mobile application:
+- Click the split icon in the toolbar or use Ctrl+Shift+S to create a split
+- Toggle between horizontal and vertical splits with Ctrl+Shift+D
+- Each split has its own independent terminal session
+- Resize splits by dragging the divider
 
-1. **Touch Keyboard**:
-   - Touch anywhere on the terminal to bring up the keyboard
-   - Use the "Hide Keyboard" button to dismiss it
-   
-2. **Gesture Support**:
-   - Swipe left/right to switch between tabs
-   - Pinch to zoom text size
-   - Long-press on text to copy
+## SFTP File Transfer
 
-3. **Offline Mode**:
-   - The app can function without network for local commands
-   - SSH connections require network connectivity
+For SSH connections, Gaia Terminal provides SFTP functionality:
+
+- Click the "SFTP" button in an active SSH session
+- Browse remote files with a dual-pane interface
+- Upload and download files between local and remote systems
+- Perform basic file operations (copy, move, delete, rename)
+
+## Platform-Specific Features
+
+### Desktop (Windows, macOS, Linux)
+- Full system shell integration
+- Native file dialogs for file selection
+- Clipboard integration
+- Drag and drop file support
+
+### Mobile (iOS and Android)
+- Touch-optimized interface
+- Virtual keyboard with terminal-specific keys
+- Gesture support for navigation
+- Portrait and landscape orientation support
+
+### Web
+- Browser-based access
+- Integration with browser's clipboard API
+- Progressive Web App (PWA) support for offline use
 
 ## Troubleshooting
 
 If you encounter issues:
 
 1. **SSH Connection Problems**:
-   - Verify hostname, username, and port
-   - Check network connectivity
+   - Verify hostname, username, port, and credentials
+   - Check network connectivity and firewall settings
    - Ensure the SSH server is running and accessible
 
 2. **Terminal Display Issues**:
-   - Try adjusting the terminal window size
-   - Clear the terminal with the `clear` command
-   - Reload the page if issues persist
+   - Adjust terminal font size in settings
+   - Clear the terminal with Ctrl+L or the `clear` command
+   - Restart the application if issues persist
 
 3. **Performance Issues**:
-   - Limit the number of open terminal tabs
-   - Close tabs when not in use
-   - Clear very long output with the `clear` command
-   
-4. **Mobile-Specific Issues**:
-   - If keyboard doesn't appear, try tapping in different areas of the terminal
-   - Restart the app if WebSocket connections fail repeatedly
-   - For iOS simulator issues, try using different device models
+   - Limit number of open terminal tabs
+   - Reduce terminal history buffer in settings
+   - Close unused SSH connections
+
+4. **Platform-Specific Issues**:
+   - **Windows**: Ensure proper Windows Terminal integration
+   - **macOS**: Check terminal access permissions in System Settings
+   - **Linux**: Verify required packages are installed
+   - **Mobile**: Check app permissions for storage access
