@@ -1,6 +1,6 @@
 # Gaia Terminal Implementation Guide
 
-This document outlines the implementation details of Gaia Terminal, a modern cross-platform terminal emulator built with Flutter.
+This document outlines the implementation details of Gaia Terminal, a modern cross-platform terminal emulator built with Flutter technology.
 
 ## Architecture Overview
 
