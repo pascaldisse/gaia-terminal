@@ -1,8 +1,6 @@
-# 🚀 Spaceflight Terminal
+# 🚀 Gaia Terminal
 
-A modern, spaceship-prompt inspired web terminal with SSH capabilities for both desktop and mobile.
-
-![Spaceflight Terminal Screenshot](https://github.com/spaceship-prompt/spaceship-prompt/raw/master/preview.gif)
+A modern, cross-platform terminal emulator with SSH capabilities built with Flutter.
 
 ## 📋 Table of Contents
 
@@ -10,7 +8,6 @@ A modern, spaceship-prompt inspired web terminal with SSH capabilities for both 
 - [Architecture](#architecture)
 - [Terminal Interface](#terminal-interface)
 - [Documentation](#documentation)
-- [Command Support](#command-support)
 - [SSH Capabilities](#ssh-capabilities)
 - [Customization](#customization)
 - [Getting Started](#getting-started)
@@ -18,219 +15,150 @@ A modern, spaceship-prompt inspired web terminal with SSH capabilities for both 
 - [Troubleshooting](#troubleshooting)
 - [Contributing](#contributing)
 - [License](#license)
-- [Acknowledgements](#acknowledgements)
 
 ## ✨ Features
 
-- 🚀 **Beautiful Spaceship-inspired Design**: Elegant and modern UI with Dracula color theme
-- 🔌 **SSH Integration**: Connect to remote servers directly from your browser
-- 📊 **Rich Contextual Prompt**: Shows Git status, execution time, user/host info and more
+- 🔥 **Modern Flutter UI**: Clean, responsive interface across all platforms
+- 🔌 **SSH Integration**: Connect to remote servers with dartssh2
+- 📊 **Native Shell Integration**: Access local shell on desktop platforms
 - 📑 **Tab-based Interface**: Manage multiple terminal sessions at once
-- 🛡️ **Secure Password Handling**: Proper security for authentication credentials
-- 🔧 **Customizable Sections**: Toggle prompt sections on/off based on your needs
-- 🌟 **Command Highlighting**: Syntax highlighting for commands and outputs
-- 🧠 **Smart Command History**: Navigate through command history with ease
-- 📱 **Responsive Design**: Works on desktop and mobile devices with native app capabilities
+- 🔄 **Split Terminal Views**: Split terminal panes for better multitasking
+- 🛡️ **Secure Authentication**: Password and private key-based SSH auth
+- 🌈 **Multiple Color Schemes**: Monokai, Solarized, Dracula, Nord themes
+- 🧠 **Command History**: Navigate through command history with ease
+- 📁 **SFTP File Transfer**: Transfer files between local and remote systems
+- 📱 **Cross-Platform**: Runs on Windows, macOS, Linux, Web, iOS, and Android
 
 ## 🏗️ Architecture
 
-Spaceflight Terminal consists of two main components:
+Gaia Terminal follows a provider-based architecture with these components:
 
-1. **Frontend**: React + Vite application providing the terminal UI
-   - Uses xterm.js for terminal emulation
-   - Styled with styled-components
-   - State management with Zustand
+1. **Services**:
+   - `TerminalService`: Manages terminal sessions and interfaces
+   - `ShellService`: Handles local shell processes
+   - `SSHService`: Manages SSH connections with dartssh2
 
-2. **Backend**: Node.js server handling SSH connections
-   - Express server with WebSocket support
-   - SSH2 library for secure connections
-   - Proxies data between client and SSH servers
+2. **UI Components**:
+   - `TerminalWidget`: Terminal emulation using xterm
+   - `TerminalTabs`: Tab management interface
+   - `TerminalToolbar`: App toolbar with actions
+   - `SettingsPanel`: User preferences
+   - `SSHDialog`: SSH connection management
+   - `SFTPPanel`: File transfer interface
 
 ## 🖥️ Terminal Interface
 
-The interface consists of several main components:
+The interface consists of these main components:
 
-1. **Toolbar**: Contains actions for creating new terminals, opening SSH connections, and accessing settings
-2. **Tabs Bar**: Shows all open terminal sessions and allows switching between them
-3. **Terminal Window**: The main terminal interface where you can enter commands
-4. **Spaceship Prompt**: The multi-line prompt showing context information
-
-### The Spaceship Prompt
-
-The terminal features a spaceship-style prompt with contextual information:
-
-```
-┌─[username@hostname] in ~/path/to/directory on ⎇ main [⚑]
-├─[⬢ v18.12.1] [⏱ took 2.5s] [✓]
-└─➜ 
-```
-
-The prompt contains:
-- **User & Host**: Shows current username and hostname
-- **Directory**: Shows current working directory
-- **Git Information**: Shows git branch and status when in a git repository
-- **Node.js Version**: Shows Node.js version for applicable projects
-- **Execution Time**: Shows execution time for commands that take longer than 2 seconds
-- **Exit Status**: Shows ✓ for successful commands, ✗ for errors
+1. **Toolbar**: Actions for new terminals, SSH connections, and settings
+2. **Tabs Bar**: Shows open terminal sessions with switching
+3. **Terminal Window**: Main terminal interface for command input
+4. **Split View**: Option to divide terminal into multiple panes
 
 ## 📚 Documentation
 
-This project includes comprehensive documentation:
+Find more details in these documents:
 
-- **[USER_GUIDE.md](USER_GUIDE.md)**: Complete guide for end users with instructions on how to use all features
-- **[IMPLEMENTATION.md](IMPLEMENTATION.md)**: Technical documentation for developers who want to understand or extend the codebase 
-- **[PROMPT_GUIDE.md](PROMPT_GUIDE.md)**: Detailed guide explaining the spaceship-prompt implementation and customization
-- **[DESIGN.md](DESIGN.md)**: Overview of design principles and architectural decisions
-- **[SUMMARY.md](SUMMARY.md)**: Brief overview of the project and its implementation
-
-## 💻 Command Support
-
-Gaia Terminal supports a variety of commands:
-
-### Basic Commands
-
-| Command | Description |
-|---------|-------------|
-| `help` | Display available commands |
-| `clear` | Clear the terminal screen |
-| `cd <path>` | Change directory |
-| `ls` | List files in current directory |
-| `pwd` | Print working directory |
-| `echo <text>` | Display text |
-| `date` | Display current date and time |
-| `whoami` | Display current user |
-| `history` | Display command history |
-| `history -c` | Clear command history |
-
-### Git Commands
-
-| Command | Description |
-|---------|-------------|
-| `git status` | Show Git repository status |
-| `git checkout <branch>` | Switch to another branch |
-
-### Node.js Commands
-
-| Command | Description |
-|---------|-------------|
-| `node` | Start Node.js REPL |
-| `node -v` | Display Node.js version |
-| `npm install <package>` | Install an npm package |
-| `npm run <script>` | Run an npm script |
+- **[USER_GUIDE.md](USER_GUIDE.md)**: End-user features guide
+- **[IMPLEMENTATION.md](IMPLEMENTATION.md)**: Technical documentation
+- **[DESIGN.md](DESIGN.md)**: Design principles and architecture
+- **[SUMMARY.md](SUMMARY.md)**: Project overview
 
 ## 🔐 SSH Capabilities
 
 ### Connecting to SSH
 
-You can connect to SSH servers in two ways:
+Connect to SSH servers in two ways:
 
 1. **Command Line**: Type `ssh username@hostname` in the terminal
-2. **SSH Modal**: Click the "SSH" button in the toolbar and fill in connection details
+2. **SSH Dialog**: Use the SSH button in the toolbar to connect
 
-### SSH Modal Features
+### SSH Features
 
-The SSH connection modal provides:
-- Connection details input (hostname, username, port)
-- Password and private key authentication options
-- Saved connection management
-- Option to remember credentials
+- Connection details management (hostname, username, port)
+- Password and private key authentication
+- Saved connections with secure credential storage
+- SFTP file transfer between local and remote systems
 
 ## 🎨 Customization
 
-You can customize various aspects of the terminal through the settings panel:
+Customize through the settings panel:
 
-- **Prompt Sections**: Enable/disable sections in the terminal settings
-- **Appearance**: Adjust font family, size, and cursor styles
-- **Terminal Behavior**: Configure scrollback limits, tab behavior, and more
+- **Appearance**: Choose color themes, font family, and size
+- **Terminal Behavior**: Adjust scrollback, cursor style, and more
+- **Keyboard Shortcuts**: Customize key bindings for common actions
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
-- Node.js 16+
-- npm or yarn
-- For mobile development: Expo CLI and iOS/Android development setup
+- Flutter SDK (latest stable version)
+- Dart SDK
+- IDE (VS Code, Android Studio, or IntelliJ IDEA)
 
 ### Installation
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/spaceflight-terminal.git
-cd spaceflight-terminal
+git clone https://github.com/yourname/gaia-terminal.git
+cd gaia-terminal
 
 # Install dependencies
-npm install
+flutter pub get
 
-# Start development server (web)
-npm run dev
+# Run the application
+flutter run
 
-# Start development server (mobile)
-npm run start
-# Or for specific platforms
-npm run ios
-npm run android
-```
-
-### Building for Production
-
-```bash
-# Build the web application
-npm run build
-
-# Start the production server
-node server.js
-
-# Build for mobile platforms
-npm run build:ios
-npm run build:android
+# Run on specific platform
+flutter run -d chrome
+flutter run -d macos
+flutter run -d windows
+flutter run -d linux
+flutter run -d ios
+flutter run -d android
 ```
 
 ## 🛠️ Development
 
 ### Available Commands
 
-- **Development**: `npm run dev` - Run Vite development server
-- **Build**: `npm run build` - Build for production
-- **Lint**: `npm run lint` - Run ESLint checks
-- **Preview**: `npm run preview` - Preview production build
+- **Setup**: `flutter pub get` - Install dependencies
+- **Run**: `flutter run` - Start development
+- **Test**: `flutter test` - Run tests
+- **Analyze**: `flutter analyze` - Run analyzer
+- **Format**: `flutter format .` - Format code
 
 ### Code Style
 
-- **Formatting**: 2-space indentation, consistent spacing, 80-char line limit
-- **Components**: Functional components with hooks, default exports
-- **Imports**: React first, external libraries next, local modules, CSS last
-- **Naming**: PascalCase for components, camelCase for variables/functions
-- **Error handling**: Use try/catch for async operations, provide user feedback
+- **Formatting**: Standard Flutter format with 2-space indentation
+- **Components**: Stateless widgets when possible, efficient state management
+- **Imports**: Dart/Flutter imports first, then external packages, then project files
+- **Naming**: PascalCase for classes/widgets, camelCase for variables/methods
+- **Error Handling**: Try/catch for async operations with user feedback
 
 ## 🔧 Troubleshooting
 
 If you encounter issues:
 
 1. **SSH Connection Problems**:
-   - Verify hostname, username, and port
-   - Check network connectivity
-   - Ensure the SSH server is running and accessible
+   - Verify hostname, username, port, and credentials
+   - Check network connectivity and firewall settings
+   - Ensure SSH server is running and accessible
 
 2. **Terminal Display Issues**:
-   - Try adjusting the terminal window size
-   - Clear the terminal with the `clear` command
-   - Reload the page if issues persist
+   - Adjust terminal font size in settings
+   - Clear terminal with the `clear` command
+   - Restart the application if issues persist
 
 3. **Performance Issues**:
-   - Limit the number of open terminal tabs
-   - Close tabs when not in use
-   - Clear very long output with the `clear` command
+   - Limit number of open terminal tabs
+   - Close unused sessions
+   - Reduce terminal history buffer size
 
 ## 🤝 Contributing
 
-Contributions are welcome! See [IMPLEMENTATION.md](IMPLEMENTATION.md) for details on the codebase structure and development workflow.
+Contributions are welcome! See [IMPLEMENTATION.md](IMPLEMENTATION.md) for codebase structure and development workflow.
 
 ## 📜 License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🙏 Acknowledgements
-
-- [Spaceship Prompt](https://github.com/spaceship-prompt/spaceship-prompt) for design inspiration
-- [xterm.js](https://github.com/xtermjs/xterm.js) for terminal emulation
-- [ssh2](https://github.com/mscdex/ssh2) for SSH functionality
