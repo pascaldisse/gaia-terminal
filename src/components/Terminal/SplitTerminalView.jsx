@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, 
   StyleSheet, 
   Dimensions, 
   TouchableOpacity, 
-  Text 
+  Text,
+  PanResponder,
+  Animated
 } from 'react-native';
 import Terminal from './Terminal';
 import Icon from '../Icons/Icon';
@@ -13,7 +15,41 @@ import { useTerminalStore } from '../../stores/terminalStore';
 const SplitTerminalView = () => {
   const [isLandscape, setIsLandscape] = useState(false);
   const [splitMode, setSplitMode] = useState('none'); // 'none', 'horizontal', 'vertical'
+  const [splitRatio, setSplitRatio] = useState(0.5); // Default to 50/50 split
   const { tabs, activeTab, addTab } = useTerminalStore();
+  
+  // For resizable splitting
+  const panValue = useRef(new Animated.Value(0.5)).current;
+  const dividerRef = useRef(null);
+  const [windowDimensions, setWindowDimensions] = useState(Dimensions.get('window'));
+  
+  // Set up pan responder for divider between panes
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        // Store the current position
+        panValue.setOffset(splitRatio);
+      },
+      onPanResponderMove: (_, gestureState) => {
+        // Calculate the new split ratio based on drag
+        let newRatio;
+        if (splitMode === 'horizontal') {
+          newRatio = panValue.getOffset() + gestureState.dx / windowDimensions.width;
+        } else {
+          newRatio = panValue.getOffset() + gestureState.dy / windowDimensions.height;
+        }
+        
+        // Clamp the ratio between 0.2 and 0.8 to prevent either pane from becoming too small
+        newRatio = Math.max(0.2, Math.min(0.8, newRatio));
+        setSplitRatio(newRatio);
+      },
+      onPanResponderRelease: () => {
+        // Reset the offset
+        panValue.flattenOffset();
+      }
+    })
+  ).current;
   
   // Check if we're in landscape orientation
   const checkOrientation = () => {
@@ -34,17 +70,19 @@ const SplitTerminalView = () => {
     }
   };
   
-  // Update orientation on dimension change
+  // Update orientation and dimensions on change
   useEffect(() => {
     checkOrientation();
     
     const dimensionListener = Dimensions.addEventListener('change', () => {
-      checkOrientation();
+      const dimensions = Dimensions.get('window');
+      setWindowDimensions(dimensions);
+      const isLandscape = dimensions.width > dimensions.height;
+      setIsLandscape(isLandscape);
       
       // Auto switch to horizontal split in landscape, but only if already in split mode
       if (splitMode !== 'none') {
-        const { width, height } = Dimensions.get('window');
-        setSplitMode(width > height ? 'horizontal' : 'vertical');
+        setSplitMode(isLandscape ? 'horizontal' : 'vertical');
       }
     });
     
@@ -100,6 +138,43 @@ const SplitTerminalView = () => {
   // Get terminal IDs to display
   const terminalIds = getTerminalIds();
   
+  // Calculate styles for panes based on splitRatio
+  const getFirstPaneStyle = () => {
+    if (splitMode === 'horizontal') {
+      return { flex: splitRatio };
+    } else if (splitMode === 'vertical') {
+      return { flex: splitRatio };
+    }
+    return { flex: 1 };
+  };
+  
+  const getSecondPaneStyle = () => {
+    if (splitMode === 'horizontal') {
+      return { flex: 1 - splitRatio };
+    } else if (splitMode === 'vertical') {
+      return { flex: 1 - splitRatio };
+    }
+    return { flex: 1 };
+  };
+  
+  // Render resizable divider between panes
+  const renderDivider = () => {
+    if (splitMode === 'none') return null;
+    
+    return (
+      <Animated.View
+        ref={dividerRef}
+        {...panResponder.panHandlers}
+        style={[
+          styles.divider,
+          splitMode === 'horizontal' ? styles.horizontalDivider : styles.verticalDivider
+        ]}
+      >
+        <View style={styles.dividerHandle} />
+      </Animated.View>
+    );
+  };
+
   return (
     <View style={styles.container}>
       {renderSplitControls()}
@@ -110,19 +185,22 @@ const SplitTerminalView = () => {
         splitMode === 'vertical' && styles.verticalSplit
       ]}>
         {terminalIds.map((id, index) => (
-          <View 
-            key={id} 
-            style={[
-              styles.terminalWrapper,
-              splitMode !== 'none' && styles.splitTerminal,
-              index === 0 && splitMode === 'horizontal' && styles.leftTerminal,
-              index === 0 && splitMode === 'vertical' && styles.topTerminal,
-              index === 1 && splitMode === 'horizontal' && styles.rightTerminal,
-              index === 1 && splitMode === 'vertical' && styles.bottomTerminal,
-            ]}
-          >
-            <Terminal id={id} visible={true} />
-          </View>
+          <React.Fragment key={id}>
+            <View 
+              style={[
+                styles.terminalWrapper,
+                splitMode !== 'none' && styles.splitTerminal,
+                index === 0 ? getFirstPaneStyle() : getSecondPaneStyle(),
+                index === 0 && splitMode === 'horizontal' && styles.leftTerminal,
+                index === 0 && splitMode === 'vertical' && styles.topTerminal,
+                index === 1 && splitMode === 'horizontal' && styles.rightTerminal,
+                index === 1 && splitMode === 'vertical' && styles.bottomTerminal,
+              ]}
+            >
+              <Terminal id={id} visible={true} />
+            </View>
+            {index === 0 && splitMode !== 'none' && renderDivider()}
+          </React.Fragment>
         ))}
       </View>
     </View>
@@ -183,20 +261,39 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   leftTerminal: {
-    borderRightWidth: 1,
-    borderRightColor: '#444',
+    // border is now on the divider
   },
   rightTerminal: {
-    borderLeftWidth: 1,
-    borderLeftColor: '#444',
+    // border is now on the divider
   },
   topTerminal: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#444',
+    // border is now on the divider
   },
   bottomTerminal: {
-    borderTopWidth: 1,
-    borderTopColor: '#444',
+    // border is now on the divider
+  },
+  // Divider styles
+  divider: {
+    backgroundColor: '#444',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  horizontalDivider: {
+    width: 8,
+    marginHorizontal: -4,
+    cursor: 'col-resize',
+  },
+  verticalDivider: {
+    height: 8,
+    marginVertical: -4,
+    cursor: 'row-resize',
+  },
+  dividerHandle: {
+    backgroundColor: '#777',
+    width: 24,
+    height: 4,
+    borderRadius: 2,
   },
 });
 

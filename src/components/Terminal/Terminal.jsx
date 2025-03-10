@@ -18,11 +18,10 @@ const Terminal = ({ id, visible }) => {
   const scrollViewRef = useRef(null);
   const inputRef = useRef(null);
   const [input, setInput] = useState('');
-  const [output, setOutput] = useState([
-    { text: 'Welcome to Spaceflight Terminal!', type: 'system' },
-    { text: 'Type "help" for available commands.', type: 'system' },
-    { text: '', type: 'system' }
-  ]);
+  // Initialize with saved output or default welcome message
+  const [output, setOutput] = useState(() => 
+    useTerminalStore.getState().getTerminalOutput(id)
+  );
   const [wsRef, setWsRef] = useState(null);
   const [sshActive, setSshActive] = useState(false);
   const [historySearchVisible, setHistorySearchVisible] = useState(false);
@@ -41,7 +40,8 @@ const Terminal = ({ id, visible }) => {
     updateEnvironment,
     activeConnections,
     sshConnections,
-    toggleDebugMode
+    toggleDebugMode,
+    saveTerminalOutput
   } = useTerminalStore();
 
   // Generate prompt text
@@ -405,8 +405,13 @@ const Terminal = ({ id, visible }) => {
         
         // If this is the first word (command), suggest from available commands
         if (words.length === 1) {
-          const commands = ['help', 'clear', 'echo', 'cd', 'ls', 'pwd', 'debug', 'exit'];
-          suggestions = commands.filter(cmd => cmd.startsWith(currentWord.toLowerCase()));
+          // Include built-in commands and aliases
+          const builtinCommands = ['help', 'clear', 'echo', 'cd', 'ls', 'pwd', 'debug', 'exit', 'alias', 'shortcuts'];
+          const aliasCommands = Object.keys(useTerminalStore.getState().aliases || {});
+          const commands = [...builtinCommands, ...aliasCommands];
+          
+          // Filter commands that match current input (case insensitive)
+          suggestions = commands.filter(cmd => cmd.toLowerCase().startsWith(currentWord.toLowerCase()));
         } 
         // If command is 'cd', suggest directories
         else if (words[0] === 'cd') {
@@ -423,7 +428,33 @@ const Terminal = ({ id, visible }) => {
             dirs = ['folder1/', 'folder2/'];
           }
           
+          // Add common navigation options
+          dirs.push('../', './');
+          
           suggestions = dirs.filter(dir => dir.toLowerCase().startsWith(currentWord.toLowerCase()));
+        }
+        // If command is 'echo', suggest environment variables
+        else if (words[0] === 'echo' && currentWord.startsWith('$')) {
+          const envVars = ['$USER', '$HOME', '$PATH', '$SHELL', '$TERM', '$PWD'];
+          suggestions = envVars.filter(v => v.toLowerCase().startsWith(currentWord.toLowerCase()));
+        }
+        // For all other commands, offer context-sensitive suggestions
+        else {
+          // Get recent command history for this terminal
+          const history = useTerminalStore.getState().getCommandHistory(id) || [];
+          const uniqueArgs = new Set();
+          
+          // Extract arguments from history for the current command
+          history.forEach(cmd => {
+            if (cmd.startsWith(words[0] + ' ')) {
+              const cmdArgs = cmd.split(' ').slice(1);
+              cmdArgs.forEach(arg => uniqueArgs.add(arg));
+            }
+          });
+          
+          // Convert to array and filter by current input
+          suggestions = Array.from(uniqueArgs)
+            .filter(arg => arg.toLowerCase().startsWith(currentWord.toLowerCase()));
         }
         
         // Apply completion if we have exactly one match
@@ -433,7 +464,25 @@ const Terminal = ({ id, visible }) => {
         } 
         // Show options if we have multiple matches
         else if (suggestions.length > 1) {
-          // Add command to output display
+          // Find common prefix if any
+          const commonPrefix = suggestions.reduce((prefix, suggestion, index) => {
+            if (index === 0) return suggestion;
+            
+            let i = 0;
+            while (i < prefix.length && i < suggestion.length && 
+                   prefix.charAt(i).toLowerCase() === suggestion.charAt(i).toLowerCase()) {
+              i++;
+            }
+            return prefix.substring(0, i);
+          }, suggestions[0]);
+          
+          // Apply common prefix if it's longer than the current word
+          if (commonPrefix.length > currentWord.length) {
+            words[words.length - 1] = commonPrefix;
+            setInput(words.join(' '));
+          }
+          
+          // Also show all options
           setOutput(prev => [
             ...prev,
             { text: `${generatePrompt()}${input}`, type: 'input' },
@@ -493,17 +542,26 @@ const Terminal = ({ id, visible }) => {
     // Create listener for dimension changes
     const dimensionsListener = Dimensions.addEventListener('change', handleResize);
     
+    // Set up an interval to save terminal output periodically
+    const saveInterval = setInterval(() => {
+      saveTerminalOutput(id, output);
+    }, 5000); // Save every 5 seconds
+    
     return () => {
       keyboardDidShowListener.remove();
       keyboardDidHideListener.remove();
       dimensionsListener.remove();
+      clearInterval(saveInterval);
+      
+      // Save terminal output when unmounting
+      saveTerminalOutput(id, output);
       
       // Close SSH connection if open when component unmounts
       if (wsRef && sshActive) {
         SSHService.disconnect(wsRef);
       }
     };
-  }, [debugMode, wsRef, sshActive, fontSize]);
+  }, [debugMode, wsRef, sshActive, fontSize, id, output, saveTerminalOutput]);
 
   // Text color map
   const textColorMap = {
@@ -644,6 +702,51 @@ const Terminal = ({ id, visible }) => {
           <Text style={styles.controlButtonText}>↑</Text>
         </TouchableOpacity>
         
+        <View style={styles.quickKeyContainer}>
+          {/* Common terminal keys that are hard to access on mobile */}
+          <TouchableOpacity
+            style={styles.quickKeyButton}
+            onPress={() => setInput(input + 'Tab'.padEnd(4))}
+          >
+            <Text style={styles.quickKeyText}>Tab</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={styles.quickKeyButton}
+            onPress={() => setInput(input + '|')}
+          >
+            <Text style={styles.quickKeyText}>|</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={styles.quickKeyButton}
+            onPress={() => setInput(input + '~')}
+          >
+            <Text style={styles.quickKeyText}>~</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={styles.quickKeyButton}
+            onPress={() => setInput(input + '-')}
+          >
+            <Text style={styles.quickKeyText}>-</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={styles.quickKeyButton}
+            onPress={() => setInput(input + '/')}
+          >
+            <Text style={styles.quickKeyText}>/</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={styles.quickKeyButton}
+            onPress={() => setInput(input + '\\')}
+          >
+            <Text style={styles.quickKeyText}>\\</Text>
+          </TouchableOpacity>
+        </View>
+        
         <TouchableOpacity 
           style={[
             styles.keyboardControl,
@@ -731,6 +834,26 @@ const styles = StyleSheet.create({
   keyboardControlText: {
     color: 'white',
     fontSize: 12,
+  },
+  quickKeyContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginRight: 8,
+    maxWidth: 160,
+  },
+  quickKeyButton: {
+    backgroundColor: 'rgba(50, 50, 50, 0.9)',
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    borderRadius: 3,
+    margin: 2,
+    minWidth: 32,
+    alignItems: 'center',
+  },
+  quickKeyText: {
+    color: 'white',
+    fontSize: 12,
+    fontFamily: 'monospace',
   }
 });
 

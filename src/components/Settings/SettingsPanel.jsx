@@ -101,6 +101,94 @@ const presetThemes = {
     brightMagenta: '#b48ead',
     brightCyan: '#8fbcbb',
     brightWhite: '#eceff4'
+  },
+  'Dracula': {
+    background: '#282a36',
+    foreground: '#f8f8f2',
+    cursor: '#f8f8f0',
+    selection: 'rgba(68, 71, 90, 0.5)',
+    black: '#000000',
+    red: '#ff5555',
+    green: '#50fa7b',
+    yellow: '#f1fa8c',
+    blue: '#bd93f9',
+    magenta: '#ff79c6',
+    cyan: '#8be9fd',
+    white: '#bbbbbb',
+    brightBlack: '#555555',
+    brightRed: '#ff5555',
+    brightGreen: '#50fa7b',
+    brightYellow: '#f1fa8c',
+    brightBlue: '#bd93f9',
+    brightMagenta: '#ff79c6',
+    brightCyan: '#8be9fd',
+    brightWhite: '#ffffff'
+  },
+  'Tokyo Night': {
+    background: '#1a1b26',
+    foreground: '#a9b1d6',
+    cursor: '#c0caf5',
+    selection: 'rgba(73, 84, 115, 0.5)',
+    black: '#32344a',
+    red: '#f7768e',
+    green: '#9ece6a',
+    yellow: '#e0af68',
+    blue: '#7aa2f7',
+    magenta: '#ad8ee6',
+    cyan: '#449dab',
+    white: '#787c99',
+    brightBlack: '#444b6a',
+    brightRed: '#ff7a93',
+    brightGreen: '#b9f27c',
+    brightYellow: '#ff9e64',
+    brightBlue: '#7da6ff',
+    brightMagenta: '#bb9af7',
+    brightCyan: '#0db9d7',
+    brightWhite: '#acb0d0'
+  },
+  'Oceanic Next': {
+    background: '#1b2b34',
+    foreground: '#cdd3de',
+    cursor: '#c0c5ce',
+    selection: 'rgba(64, 89, 109, 0.5)',
+    black: '#343d46',
+    red: '#ec5f67',
+    green: '#99c794',
+    yellow: '#fac863',
+    blue: '#6699cc',
+    magenta: '#c594c5',
+    cyan: '#5fb3b3',
+    white: '#a7adba',
+    brightBlack: '#65737e',
+    brightRed: '#ec5f67',
+    brightGreen: '#99c794',
+    brightYellow: '#fac863',
+    brightBlue: '#6699cc',
+    brightMagenta: '#c594c5',
+    brightCyan: '#5fb3b3',
+    brightWhite: '#d8dee9'
+  },
+  'Ayu Dark': {
+    background: '#0a0e14',
+    foreground: '#b3b1ad',
+    cursor: '#e6b450',
+    selection: 'rgba(35, 40, 48, 0.5)',
+    black: '#01060e',
+    red: '#ea6c73',
+    green: '#91b362',
+    yellow: '#f9af4f',
+    blue: '#53bdfa',
+    magenta: '#fae994',
+    cyan: '#90e1c6',
+    white: '#c7c7c7',
+    brightBlack: '#686868',
+    brightRed: '#f07178',
+    brightGreen: '#c2d94c',
+    brightYellow: '#ffb454',
+    brightBlue: '#59c2ff',
+    brightMagenta: '#ffee99',
+    brightCyan: '#95e6cb',
+    brightWhite: '#ffffff'
   }
 };
 
@@ -149,7 +237,9 @@ function SettingsPanel({ onClose }) {
   const [settings, setSettings] = useState({
     fontSize,
     fontFamily,
-    theme: { ...theme }
+    theme: { ...theme },
+    darkMode: theme.background.match(/^#[0-9a-f]{6}$/i) ? 
+      parseInt(theme.background.substring(1), 16) < 0x808080 : true
   });
   
   const handleFontSizeChange = (value) => {
@@ -230,6 +320,37 @@ function SettingsPanel({ onClose }) {
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Terminal Colors</Text>
               
+              {/* Dark Mode Toggle */}
+              <View style={styles.settingItem}>
+                <View style={styles.settingRow}>
+                  <Text style={styles.settingLabel}>Dark Mode</Text>
+                  <TouchableOpacity
+                    style={[
+                      styles.toggleButton,
+                      settings.darkMode ? styles.toggleActive : styles.toggleInactive
+                    ]}
+                    onPress={() => {
+                      // Toggle dark mode and apply a suitable theme
+                      const newDarkMode = !settings.darkMode;
+                      const newTheme = newDarkMode ? 
+                        presetThemes['Tokyo Night'] : 
+                        presetThemes['Light Solarized'];
+                      
+                      setSettings(prev => ({
+                        ...prev,
+                        darkMode: newDarkMode,
+                        theme: { ...newTheme }
+                      }));
+                    }}
+                  >
+                    <View style={[
+                      styles.toggleHandle,
+                      settings.darkMode ? styles.toggleHandleRight : styles.toggleHandleLeft
+                    ]} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+              
               <View style={styles.presetThemesContainer}>
                 <Text style={styles.settingLabel}>Preset Themes</Text>
                 <ScrollView 
@@ -237,7 +358,14 @@ function SettingsPanel({ onClose }) {
                   showsHorizontalScrollIndicator={false}
                   style={styles.presetThemesScroll}
                 >
-                  {Object.entries(presetThemes).map(([name, theme]) => (
+                  {Object.entries(presetThemes)
+                    // Filter themes based on dark mode
+                    .filter(([_, theme]) => {
+                      // Check if theme matches current dark mode setting
+                      const isThemeDark = parseInt(theme.background.substring(1), 16) < 0x808080;
+                      return settings.darkMode === isThemeDark;
+                    })
+                    .map(([name, theme]) => (
                     <TouchableOpacity
                       key={name}
                       style={[
@@ -381,6 +509,35 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
+  },
+  settingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  toggleButton: {
+    width: 48,
+    height: 24,
+    borderRadius: 12,
+    padding: 2,
+  },
+  toggleActive: {
+    backgroundColor: '#4CAF50',
+  },
+  toggleInactive: {
+    backgroundColor: '#777',
+  },
+  toggleHandle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'white',
+  },
+  toggleHandleLeft: {
+    alignSelf: 'flex-start',
+  },
+  toggleHandleRight: {
+    alignSelf: 'flex-end',
   },
   modalTitle: {
     color: '#fff',

@@ -21,6 +21,9 @@ export const useTerminalStore = create(
   tabs: [],
   activeTab: null,
   
+  // Terminal outputs (for session persistence)
+  terminalOutputs: {},
+  
   // Terminal settings
   fontSize: 14,
   fontFamily: 'monospace',
@@ -200,6 +203,24 @@ export const useTerminalStore = create(
     return get().commandHistory[tabId] || [];
   },
   
+  // Terminal output persistence
+  saveTerminalOutput: (tabId, output) => {
+    set(state => ({
+      terminalOutputs: {
+        ...state.terminalOutputs,
+        [tabId]: output
+      }
+    }));
+  },
+  
+  getTerminalOutput: (tabId) => {
+    return get().terminalOutputs[tabId] || [
+      { text: 'Welcome to Spaceflight Terminal!', type: 'system' },
+      { text: 'Type "help" for available commands.', type: 'system' },
+      { text: '', type: 'system' }
+    ];
+  },
+  
   // Settings
   updateSettings: (settings) => {
     set(state => ({ ...state, ...settings }))
@@ -367,6 +388,24 @@ export const useTerminalStore = create(
     fontSize: state.fontSize,
     fontFamily: state.fontFamily,
     theme: state.theme,
-    debugMode: state.debugMode
+    debugMode: state.debugMode,
+    // Save terminal sessions
+    tabs: state.tabs,
+    activeTab: state.activeTab,
+    commandHistory: state.commandHistory,
+    aliases: state.aliases,
+    // Save terminal outputs (limiting to last 100 lines per tab for performance)
+    terminalOutputs: Object.fromEntries(
+      Object.entries(state.terminalOutputs).map(([id, output]) => [
+        id,
+        output.slice(-100) // Only store last 100 lines
+      ])
+    ),
+    // Don't persist sensitive data or current connection state
+    environment: {
+      username: state.environment.username,
+      hostname: state.environment.hostname,
+      path: state.environment.path
+    }
   })
 }))
