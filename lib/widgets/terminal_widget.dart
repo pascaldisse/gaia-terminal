@@ -5,11 +5,11 @@ import 'package:xterm/xterm.dart';
 import '../services/terminal_service.dart';
 
 class TerminalWidget extends StatefulWidget {
-  final TerminalTab terminalTab;
+  final TerminalInstance instance;
 
   const TerminalWidget({
     super.key,
-    required this.terminalTab,
+    required this.instance,
   });
 
   @override
@@ -67,12 +67,49 @@ class _TerminalWidgetState extends State<TerminalWidget> {
       final keyLabel = event.logicalKey.keyLabel;
       debugPrint('Key event: ${event.logicalKey.debugName}, keyLabel: $keyLabel');
       
+      // Handle up arrow for command history
+      if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+        final previousCommand = terminalService.navigateHistoryUp();
+        if (previousCommand != null) {
+          // Clear current input and display previous command
+          if (_currentInput.isNotEmpty) {
+            final prompt = widget.instance.isConnected ? '\$ ' : '> ';
+            widget.instance.terminal.write('\r\x1b[K'); // Clear line
+            widget.instance.terminal.write(prompt + previousCommand);
+            setState(() {
+              _currentInput = previousCommand;
+            });
+          }
+        }
+        return;
+      }
+      
+      // Handle down arrow for command history
+      if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+        final nextCommand = terminalService.navigateHistoryDown();
+        final prompt = widget.instance.isConnected ? '\$ ' : '> ';
+        widget.instance.terminal.write('\r\x1b[K'); // Clear line
+        
+        if (nextCommand != null) {
+          widget.instance.terminal.write(prompt + nextCommand);
+          setState(() {
+            _currentInput = nextCommand;
+          });
+        } else {
+          widget.instance.terminal.write(prompt);
+          setState(() {
+            _currentInput = '';
+          });
+        }
+        return;
+      }
+      
       if (event.logicalKey == LogicalKeyboardKey.enter) {
         debugPrint('Enter pressed, sending command: $_currentInput');
         if (_currentInput.isNotEmpty) {
           terminalService.sendCommand(_currentInput);
           _currentInput = '';
-          widget.terminalTab.terminal.write('\r\n');
+          widget.instance.terminal.write('\r\n');
         }
       } else if (event.logicalKey == LogicalKeyboardKey.backspace) {
         debugPrint('Backspace detected in KeyDownEvent');
@@ -83,11 +120,11 @@ class _TerminalWidgetState extends State<TerminalWidget> {
           });
           
           // Get the proper prompt based on connection status
-          String prompt = widget.terminalTab.isConnected ? '\$ ' : '> ';
+          String prompt = widget.instance.isConnected ? '\$ ' : '> ';
           
           // Use ANSI escape sequence to clear the line completely
-          widget.terminalTab.terminal.write('\r\x1b[K');   // Carriage return + clear line from cursor to end
-          widget.terminalTab.terminal.write(prompt + _currentInput);
+          widget.instance.terminal.write('\r\x1b[K');   // Carriage return + clear line from cursor to end
+          widget.instance.terminal.write(prompt + _currentInput);
           
           debugPrint('Backspace processed, current input: $_currentInput');
         }
@@ -95,7 +132,7 @@ class _TerminalWidgetState extends State<TerminalWidget> {
         setState(() {
           _currentInput += event.character!;
         });
-        widget.terminalTab.terminal.write(event.character!);
+        widget.instance.terminal.write(event.character!);
         debugPrint('Character added: ${event.character}, current input: $_currentInput');
       }
     }
@@ -122,7 +159,7 @@ class _TerminalWidgetState extends State<TerminalWidget> {
                 child: Container(
                   color: terminalService.currentTheme.background,
                   child: TerminalView(
-                    widget.terminalTab.terminal,
+                    widget.instance.terminal,
                     textStyle: TerminalStyle(
                       fontSize: terminalService.fontSize,
                       fontFamily: 'monospace',
@@ -145,7 +182,7 @@ class _TerminalWidgetState extends State<TerminalWidget> {
               child: Row(
                 children: [
                   Text(
-                    widget.terminalTab.isConnected ? '\$ ' : '> ',
+                    widget.instance.isConnected ? '\$ ' : '> ',
                     style: const TextStyle(color: Colors.white),
                   ),
                   Expanded(

@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/terminal_service.dart';
 import '../widgets/terminal_tabs.dart';
-import '../widgets/terminal_widget.dart';
 import '../widgets/terminal_toolbar.dart';
 import '../widgets/settings_panel.dart';
+import '../widgets/split_view/split_terminal_view.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -24,8 +24,8 @@ class HomeScreen extends StatelessWidget {
                     if (terminalService.tabs.isNotEmpty &&
                         terminalService.activeTabIndex < terminalService.tabs.length)
                       Positioned.fill(
-                        child: TerminalWidget(
-                          terminalTab: terminalService.tabs[terminalService.activeTabIndex],
+                        child: SplitTerminalView(
+                          pane: terminalService.tabs[terminalService.activeTabIndex].rootPane,
                         ),
                       ),
                     if (terminalService.isSettingsOpen)
