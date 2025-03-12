@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:xterm/xterm.dart';
 import '../services/terminal_service.dart';
 import '../services/sftp_service.dart';
 import 'ssh_dialog.dart';
@@ -68,7 +69,7 @@ class TerminalToolbar extends StatelessWidget {
       (instance) => instance.isConnected && instance.sshClient != null,
       orElse: () => TerminalInstance(
         id: 'dummy',
-        terminal: Terminal(),
+        terminal: Terminal(maxLines: 1000),
       ),
     );
     

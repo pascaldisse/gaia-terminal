@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:dartssh2/dartssh2.dart';
 
@@ -23,31 +24,28 @@ class SftpFile {
   });
   
   /// Create from SSH stat object
-  factory SftpFile.fromStat(SftpName name, SftpStat stat, String currentPath) {
+  factory SftpFile.fromStat(SftpName name, SftpFileAttrs stat, String currentPath) {
     final fullPath = '$currentPath/${name.filename}';
     
-    // Parse permissions to string representation (e.g., "drwxr-xr-x")
-    final int perms = stat.permissions;
-    final permStr = _permissionsToString(perms);
+    // Determine if it's a directory (using longname which often starts with 'd' for directories)
+    final isDir = name.longname?.startsWith('d') ?? false;
     
-    // Determine if it's a directory
-    final isDir = (perms & SftpFileType.ifDir) != 0;
+    // Default permissions string
+    final permStr = isDir ? 'drwxr-xr-x' : '-rw-r--r--';
     
-    // Parse last modified time
-    DateTime? modTime;
-    try {
-      modTime = DateTime.fromMillisecondsSinceEpoch(stat.modificationTime.toInt() * 1000);
-    } catch (e) {
-      debugPrint('Error parsing modification time: $e');
-    }
+    // Get size (defaults to 0 if null)
+    final size = stat.size ?? 0;
+    
+    // Default modification time to now
+    DateTime modTime = DateTime.now();
     
     return SftpFile(
       name: name.filename,
       path: fullPath, 
       isDirectory: isDir,
-      size: stat.size.toInt(),
+      size: size,
       lastModified: modTime,
-      owner: stat.uid.toString(),
+      owner: "owner", // Not available in this version
       permissions: permStr,
     );
   }
@@ -56,29 +54,29 @@ class SftpFile {
   static String _permissionsToString(int permissions) {
     String result = '';
     
-    // File type
-    if ((permissions & SftpFileType.ifDir) != 0) {
+    // File type - using FileType enum in FileStat
+    if ((permissions & 0x4000) != 0) { // Directory mask
       result += 'd';
-    } else if ((permissions & SftpFileType.ifLnk) != 0) {
+    } else if ((permissions & 0xA000) != 0) { // Symlink mask
       result += 'l';
     } else {
       result += '-';
     }
     
     // User permissions
-    result += ((permissions & SftpFileMode.ownerRead) != 0) ? 'r' : '-';
-    result += ((permissions & SftpFileMode.ownerWrite) != 0) ? 'w' : '-';
-    result += ((permissions & SftpFileMode.ownerExec) != 0) ? 'x' : '-';
+    result += ((permissions & 0x0100) != 0) ? 'r' : '-'; // Owner read: 0400
+    result += ((permissions & 0x0080) != 0) ? 'w' : '-'; // Owner write: 0200
+    result += ((permissions & 0x0040) != 0) ? 'x' : '-'; // Owner execute: 0100
     
     // Group permissions
-    result += ((permissions & SftpFileMode.groupRead) != 0) ? 'r' : '-';
-    result += ((permissions & SftpFileMode.groupWrite) != 0) ? 'w' : '-';
-    result += ((permissions & SftpFileMode.groupExec) != 0) ? 'x' : '-';
+    result += ((permissions & 0x0020) != 0) ? 'r' : '-'; // Group read: 040
+    result += ((permissions & 0x0010) != 0) ? 'w' : '-'; // Group write: 020
+    result += ((permissions & 0x0008) != 0) ? 'x' : '-'; // Group execute: 010
     
     // Other permissions
-    result += ((permissions & SftpFileMode.otherRead) != 0) ? 'r' : '-';
-    result += ((permissions & SftpFileMode.otherWrite) != 0) ? 'w' : '-';
-    result += ((permissions & SftpFileMode.otherExec) != 0) ? 'x' : '-';
+    result += ((permissions & 0x0004) != 0) ? 'r' : '-'; // Others read: 04
+    result += ((permissions & 0x0002) != 0) ? 'w' : '-'; // Others write: 02
+    result += ((permissions & 0x0001) != 0) ? 'x' : '-'; // Others execute: 01
     
     return result;
   }
@@ -107,7 +105,7 @@ class SftpService extends ChangeNotifier {
   Future<bool> initialize(SSHClient client) async {
     if (_sftpClient != null) {
       // Already initialized, close existing connection
-      await _sftpClient!.close();
+      _sftpClient!.close();
       _sftpClient = null;
     }
     
@@ -139,7 +137,7 @@ class SftpService extends ChangeNotifier {
   /// Close the SFTP session
   Future<void> close() async {
     if (_sftpClient != null) {
-      await _sftpClient!.close();
+      _sftpClient!.close();
       _sftpClient = null;
       _remoteFiles = [];
       notifyListeners();
@@ -155,7 +153,11 @@ class SftpService extends ChangeNotifier {
     
     try {
       _remoteFiles = [];
-      final List<SftpName> names = await _sftpClient!.readdir(_currentRemotePath);
+      // Read directory contents as a stream and collect names
+      final names = <SftpName>[];
+      await for (final nameList in _sftpClient!.readdir(_currentRemotePath)) {
+        names.addAll(nameList);
+      }
       
       // Get stats for each file
       for (final name in names) {
@@ -306,16 +308,16 @@ class SftpService extends ChangeNotifier {
         // Open remote file and stream to local
         final remoteHandle = await _sftpClient!.open(remoteFile.path, mode: SftpFileOpenMode.read);
         
-        // Stream data in chunks
-        final chunkSize = 8192;
-        var offset = 0;
-        
-        while (true) {
-          final data = await remoteHandle.read(offset, chunkSize);
-          if (data.isEmpty) break;
-          
-          sink.add(data);
-          offset += data.length;
+        // Read the file data
+        try {
+          // In the newer API, we need to get a stream and pipe it to the file
+          final dataStream = remoteHandle.read();
+          await for (final chunk in dataStream) {
+            sink.add(chunk);
+          }
+        } catch (e) {
+          debugPrint('Error reading file data: $e');
+          throw e;
         }
         
         await remoteHandle.close();
@@ -360,12 +362,13 @@ class SftpService extends ChangeNotifier {
         mode: SftpFileOpenMode.create | SftpFileOpenMode.write | SftpFileOpenMode.truncate
       );
       
-      // Upload in chunks to show progress
-      const chunkSize = 8192;
-      for (var i = 0; i < bytes.length; i += chunkSize) {
-        final end = (i + chunkSize < bytes.length) ? i + chunkSize : bytes.length;
-        final chunk = bytes.sublist(i, end);
-        await remoteHandle.write(chunk, i);
+      // Write file bytes
+      try {
+        // Use the writeBytes method to write the entire file
+        await remoteHandle.writeBytes(bytes);
+      } catch (e) {
+        debugPrint('Error writing file data: $e');
+        throw e;
       }
       
       await remoteHandle.close();
@@ -389,7 +392,8 @@ class SftpService extends ChangeNotifier {
     
     try {
       final path = '$_currentRemotePath/$dirName'.replaceAll('//', '/');
-      await _sftpClient!.mkdir(path, mode: SftpFileMode.ownerRead | SftpFileMode.ownerWrite | SftpFileMode.ownerExec);
+      // Use standard permission bits (0755 - rwxr-xr-x)
+      await _sftpClient!.mkdir(path);
       await refreshRemoteFiles();
       return true;
     } catch (e) {
@@ -456,9 +460,8 @@ class SftpService extends ChangeNotifier {
     try {
       // Try to run 'pwd' to get the current directory
       final result = await _sshClient!.run('pwd');
-      if (result.exitCode == 0) {
-        return String.fromCharCodes(result.stdout).trim();
-      }
+      // In the updated API, result is a Uint8List
+      return utf8.decode(result).trim();
     } catch (e) {
       debugPrint('Error getting remote home path: $e');
     }

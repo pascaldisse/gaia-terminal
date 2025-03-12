@@ -184,10 +184,12 @@ class _SftpBrowserState extends State<SftpBrowser> {
     final List<Widget> items = [];
     if (sftpService.currentRemotePath != '/') {
       items.add(
-        ListTile(
-          leading: const Icon(Icons.folder, color: Colors.amber),
-          title: const Text('..'),
+        InkWell(
           onTap: () => sftpService.changeRemoteDirectory('..'),
+          child: ListTile(
+            leading: const Icon(Icons.folder, color: Colors.amber),
+            title: const Text('..'),
+          ),
         ),
       );
     }
@@ -204,9 +206,6 @@ class _SftpBrowserState extends State<SftpBrowser> {
             setState(() => _selectedRemoteFile = file);
           }
         },
-        onDoubleTap: file.isDirectory 
-            ? () => sftpService.changeRemoteDirectory(file.name)
-            : null,
       )),
     );
     
@@ -230,10 +229,12 @@ class _SftpBrowserState extends State<SftpBrowser> {
     final List<Widget> items = [];
     if (Directory(sftpService.currentLocalPath).parent.path != sftpService.currentLocalPath) {
       items.add(
-        ListTile(
-          leading: const Icon(Icons.folder, color: Colors.amber),
-          title: const Text('..'),
+        InkWell(
           onTap: () => sftpService.changeLocalDirectory('..'),
+          child: ListTile(
+            leading: const Icon(Icons.folder, color: Colors.amber),
+            title: const Text('..'),
+          ),
         ),
       );
     }
@@ -243,13 +244,7 @@ class _SftpBrowserState extends State<SftpBrowser> {
       final name = entity.path.split('/').last;
       final isDir = entity is Directory;
       
-      return ListTile(
-        leading: Icon(
-          isDir ? Icons.folder : Icons.insert_drive_file,
-          color: isDir ? Colors.amber : Colors.blue,
-        ),
-        title: Text(name),
-        selected: _selectedLocalFile == entity,
+      return InkWell(
         onTap: () {
           if (isDir) {
             sftpService.changeLocalDirectory(entity.path);
@@ -257,9 +252,21 @@ class _SftpBrowserState extends State<SftpBrowser> {
             setState(() => _selectedLocalFile = entity);
           }
         },
-        onDoubleTap: isDir 
-            ? () => sftpService.changeLocalDirectory(entity.path)
-            : null,
+        child: ListTile(
+          onTap: () {
+            if (isDir) {
+              sftpService.changeLocalDirectory(entity.path);
+            } else {
+              setState(() => _selectedLocalFile = entity);
+            }
+          },
+          leading: Icon(
+            isDir ? Icons.folder : Icons.insert_drive_file,
+            color: isDir ? Colors.amber : Colors.blue,
+          ),
+          title: Text(name),
+          selected: _selectedLocalFile == entity,
+        ),
       );
     }));
     

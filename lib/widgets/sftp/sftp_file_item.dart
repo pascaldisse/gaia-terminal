@@ -25,6 +25,7 @@ class SftpFileItem extends StatelessWidget {
         : '';
     
     return ListTile(
+      onTap: onTap,
       leading: Icon(
         file.isDirectory ? Icons.folder : _getFileIcon(fileName),
         color: file.isDirectory ? Colors.amber : Colors.blue,
@@ -36,8 +37,6 @@ class SftpFileItem extends StatelessWidget {
       ),
       selected: isSelected,
       selectedTileColor: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
-      onTap: onTap,
-      onDoubleTap: onDoubleTap,
     );
   }
   
