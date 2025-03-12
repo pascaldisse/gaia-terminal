@@ -1,7 +1,6 @@
 import 'dart:convert';
-import 'dart:typed_data';
-import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xterm/xterm.dart';
@@ -9,9 +8,6 @@ import 'package:dartssh2/dartssh2.dart';
 
 // Import local services
 import 'ssh_proxy_service.dart';
-
-// Import dart:io only for non-web platforms
-import 'dart:io' if (dart.library.html) 'dart:html' as io;
 
 class TerminalTab {
   final String id;
@@ -84,13 +80,84 @@ class SSHConnection {
   }
 }
 
+/// Terminal themes with color schemes
+enum TerminalTheme {
+  dark,
+  light,
+  monokai,
+  dracula,
+  nord,
+  solarized
+}
+
+/// Extension to provide color values for each theme
+extension TerminalThemeExtension on TerminalTheme {
+  String get displayName {
+    switch (this) {
+      case TerminalTheme.dark: return 'Dark';
+      case TerminalTheme.light: return 'Light';  
+      case TerminalTheme.monokai: return 'Monokai';
+      case TerminalTheme.dracula: return 'Dracula';
+      case TerminalTheme.nord: return 'Nord';
+      case TerminalTheme.solarized: return 'Solarized';
+    }
+  }
+  
+  Color get background {
+    switch (this) {
+      case TerminalTheme.dark: return const Color(0xFF1E1E1E);
+      case TerminalTheme.light: return const Color(0xFFF5F5F5);
+      case TerminalTheme.monokai: return const Color(0xFF272822);
+      case TerminalTheme.dracula: return const Color(0xFF282A36);
+      case TerminalTheme.nord: return const Color(0xFF2E3440);
+      case TerminalTheme.solarized: return const Color(0xFF002B36);
+    }
+  }
+  
+  Color get text {
+    switch (this) {
+      case TerminalTheme.dark: return const Color(0xFFFFFFFF);
+      case TerminalTheme.light: return const Color(0xFF000000);
+      case TerminalTheme.monokai: return const Color(0xFFF8F8F2);
+      case TerminalTheme.dracula: return const Color(0xFFF8F8F2);
+      case TerminalTheme.nord: return const Color(0xFFD8DEE9);
+      case TerminalTheme.solarized: return const Color(0xFF839496);
+    }
+  }
+  
+  Color get cursor {
+    switch (this) {
+      case TerminalTheme.dark: return const Color(0xFFFFFFFF);
+      case TerminalTheme.light: return const Color(0xFF000000);
+      case TerminalTheme.monokai: return const Color(0xFFF92672);
+      case TerminalTheme.dracula: return const Color(0xFFFF79C6);
+      case TerminalTheme.nord: return const Color(0xFF81A1C1);
+      case TerminalTheme.solarized: return const Color(0xFF2AA198);
+    }
+  }
+  
+  Color get selection {
+    switch (this) {
+      case TerminalTheme.dark: return const Color(0xFF264F78);
+      case TerminalTheme.light: return const Color(0xFFADD6FF);
+      case TerminalTheme.monokai: return const Color(0xFF49483E);
+      case TerminalTheme.dracula: return const Color(0xFF44475A);
+      case TerminalTheme.nord: return const Color(0xFF3B4252);
+      case TerminalTheme.solarized: return const Color(0xFF073642);
+    }
+  }
+}
+
 class TerminalService extends ChangeNotifier {
   List<TerminalTab> tabs = [];
   List<SSHConnection> savedConnections = [];
   int activeTabIndex = 0;
   bool isSettingsOpen = false;
   double fontSize = 14.0;
-  String theme = 'dark';
+  TerminalTheme _currentTheme = TerminalTheme.dark;
+  
+  TerminalTheme get currentTheme => _currentTheme;
+  String get theme => _currentTheme.name;
   
   TerminalService() {
     _init();
@@ -106,7 +173,11 @@ class TerminalService extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       fontSize = prefs.getDouble('fontSize') ?? 14.0;
-      theme = prefs.getString('theme') ?? 'dark';
+      final themeName = prefs.getString('theme') ?? 'dark';
+      _currentTheme = TerminalTheme.values.firstWhere(
+        (t) => t.name == themeName,
+        orElse: () => TerminalTheme.dark
+      );
       notifyListeners();
     } catch (e) {
       debugPrint('Error loading settings: $e');
@@ -117,7 +188,7 @@ class TerminalService extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setDouble('fontSize', fontSize);
-      await prefs.setString('theme', theme);
+      await prefs.setString('theme', _currentTheme.name);
     } catch (e) {
       debugPrint('Error saving settings: $e');
     }
@@ -248,8 +319,21 @@ class TerminalService extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setTheme(String newTheme) {
-    theme = newTheme;
+  void setTheme(String themeName) {
+    try {
+      _currentTheme = TerminalTheme.values.firstWhere(
+        (t) => t.name == themeName,
+        orElse: () => _currentTheme
+      );
+      _saveSettings();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error setting theme: $e');
+    }
+  }
+  
+  void setThemeByEnum(TerminalTheme newTheme) {
+    _currentTheme = newTheme;
     _saveSettings();
     notifyListeners();
   }

@@ -7,7 +7,7 @@ import '../widgets/terminal_toolbar.dart';
 import '../widgets/settings_panel.dart';
 
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+  const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

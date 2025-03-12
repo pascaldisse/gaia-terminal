@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../services/terminal_service.dart';
 
 class TerminalTabs extends StatelessWidget {
-  const TerminalTabs({Key? key}) : super(key: key);
+  const TerminalTabs({super.key});
 
   @override
   Widget build(BuildContext context) {

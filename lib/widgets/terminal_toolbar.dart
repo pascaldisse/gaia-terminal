@@ -4,7 +4,7 @@ import '../services/terminal_service.dart';
 import 'ssh_dialog.dart';
 
 class TerminalToolbar extends StatelessWidget {
-  const TerminalToolbar({Key? key}) : super(key: key);
+  const TerminalToolbar({super.key});
 
   @override
   Widget build(BuildContext context) {

@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../services/terminal_service.dart';
 
 class SettingsPanel extends StatelessWidget {
-  const SettingsPanel({Key? key}) : super(key: key);
+  const SettingsPanel({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -14,7 +14,7 @@ class SettingsPanel extends StatelessWidget {
         color: Colors.grey[850],
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.5),
+            color: Colors.black.withAlpha(128),
             spreadRadius: 1,
             blurRadius: 5,
             offset: const Offset(-2, 0),
@@ -62,24 +62,18 @@ class SettingsPanel extends StatelessWidget {
             style: TextStyle(color: Colors.white),
           ),
           const SizedBox(height: 8),
-          Row(
-            children: [
-              _themeOption(
+          Wrap(
+            spacing: 8.0,
+            runSpacing: 8.0,
+            children: TerminalTheme.values.map((theme) {
+              return _themeOption(
                 context, 
-                'Dark', 
-                'dark', 
+                theme.displayName, 
+                theme.name, 
                 terminalService.theme, 
                 terminalService.setTheme,
-              ),
-              const SizedBox(width: 16),
-              _themeOption(
-                context, 
-                'Light', 
-                'light', 
-                terminalService.theme, 
-                terminalService.setTheme,
-              ),
-            ],
+              );
+            }).toList(),
           ),
           const Spacer(),
           const Text(

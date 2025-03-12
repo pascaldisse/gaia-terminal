@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../services/terminal_service.dart';
 
 class SSHDialog extends StatefulWidget {
-  const SSHDialog({Key? key}) : super(key: key);
+  const SSHDialog({super.key});
 
   @override
   State<SSHDialog> createState() => _SSHDialogState();
@@ -331,7 +331,9 @@ class _SSHDialogState extends State<SSHDialog> {
       final success = await terminalService.connectSSH(connection);
       
       if (success) {
-        Navigator.of(context).pop();
+        if (context.mounted) {
+          Navigator.of(context).pop();
+        }
       } else {
         setState(() {
           _isConnecting = false;

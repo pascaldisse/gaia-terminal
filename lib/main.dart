@@ -34,15 +34,25 @@ class GaiaTerminalApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final terminalService = Provider.of<TerminalService>(context);
     return MaterialApp(
       title: 'Gaia Terminal',
       theme: ThemeData(
-        brightness: Brightness.dark,
-        colorScheme: ColorScheme.dark(
-          primary: Colors.blue,
-          secondary: Colors.blueAccent,
-        ),
-        scaffoldBackgroundColor: const Color(0xFF1E1E1E),
+        brightness: terminalService.currentTheme == TerminalTheme.light 
+            ? Brightness.light 
+            : Brightness.dark,
+        colorScheme: terminalService.currentTheme == TerminalTheme.light
+            ? ColorScheme.light(
+                primary: Colors.blue,
+                secondary: Colors.blueAccent,
+                surface: terminalService.currentTheme.background,
+              ) 
+            : ColorScheme.dark(
+                primary: Colors.blue,
+                secondary: Colors.blueAccent,
+                surface: terminalService.currentTheme.background,
+              ),
+        scaffoldBackgroundColor: terminalService.currentTheme.background,
       ),
       home: const HomeScreen(),
     );

@@ -8,9 +8,9 @@ class TerminalWidget extends StatefulWidget {
   final TerminalTab terminalTab;
 
   const TerminalWidget({
-    Key? key,
+    super.key,
     required this.terminalTab,
-  }) : super(key: key);
+  });
 
   @override
   State<TerminalWidget> createState() => _TerminalWidgetState();
@@ -58,14 +58,14 @@ class _TerminalWidgetState extends State<TerminalWidget> {
     super.dispose();
   }
   
-  void _handleKeyEvent(RawKeyEvent event) {
+  void _handleKeyEvent(KeyEvent event) {
     if (!_useDirectTerminal) return; // Skip if not using direct terminal mode
     
     final terminalService = Provider.of<TerminalService>(context, listen: false);
     
-    if (event is RawKeyDownEvent) {
+    if (event is KeyDownEvent) {
       final keyLabel = event.logicalKey.keyLabel;
-      debugPrint('Raw Key event: ${event.logicalKey.debugName}, keyLabel: $keyLabel');
+      debugPrint('Key event: ${event.logicalKey.debugName}, keyLabel: $keyLabel');
       
       if (event.logicalKey == LogicalKeyboardKey.enter) {
         debugPrint('Enter pressed, sending command: $_currentInput');
@@ -75,7 +75,7 @@ class _TerminalWidgetState extends State<TerminalWidget> {
           widget.terminalTab.terminal.write('\r\n');
         }
       } else if (event.logicalKey == LogicalKeyboardKey.backspace) {
-        debugPrint('Backspace detected in RawKeyDownEvent');
+        debugPrint('Backspace detected in KeyDownEvent');
         if (_currentInput.isNotEmpty) {
           setState(() {
             // Remove the last character from current input
@@ -106,29 +106,32 @@ class _TerminalWidgetState extends State<TerminalWidget> {
     final terminalService = Provider.of<TerminalService>(context);
     
     return Container(
-      color: Colors.black,
+      color: terminalService.currentTheme.background,
       child: Column(
         children: [
           Expanded(
-            child: RawKeyboardListener(
+            child: KeyboardListener(
               focusNode: _terminalFocusNode,
-              onKey: _handleKeyEvent,
+              onKeyEvent: _handleKeyEvent,
               autofocus: true,
               child: GestureDetector(
                 onTap: () {
                   debugPrint('Terminal tapped, requesting focus');
                   FocusScope.of(context).requestFocus(_terminalFocusNode);
                 },
-                child: TerminalView(
-                  widget.terminalTab.terminal,
-                  textStyle: TerminalStyle(
-                    fontSize: terminalService.fontSize,
-                    fontFamily: 'monospace',
+                child: Container(
+                  color: terminalService.currentTheme.background,
+                  child: TerminalView(
+                    widget.terminalTab.terminal,
+                    textStyle: TerminalStyle(
+                      fontSize: terminalService.fontSize,
+                      fontFamily: 'monospace',
+                    ),
+                    // When using direct input, don't let TerminalView handle keyboard
+                    keyboardType: _useDirectTerminal 
+                        ? TextInputType.none 
+                        : TextInputType.emailAddress,
                   ),
-                  // When using direct input, don't let TerminalView handle keyboard
-                  keyboardType: _useDirectTerminal 
-                      ? TextInputType.none 
-                      : TextInputType.emailAddress,
                 ),
               ),
             ),

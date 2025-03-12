@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:xterm/xterm.dart';
@@ -7,7 +6,7 @@ import 'package:xterm/xterm.dart';
 /// using a WebSocket proxy server
 class SSHProxyService {
   // Web-based SSH client alternatives
-  static final List<Map<String, String>> WEB_SSH_SERVICES = [
+  static final List<Map<String, String>> webSshServices = [
     {'name': 'shell.hop.sh', 'url': 'https://shell.hop.sh/'},
     {'name': 'shellngn.com', 'url': 'https://www.shellngn.com/'},
     {'name': 'WebSSH.dev', 'url': 'https://webssh.dev/'},
@@ -15,7 +14,7 @@ class SSHProxyService {
   ];
   
   // Public test SSH servers for trying connections
-  static final List<Map<String, String>> TEST_SSH_SERVERS = [
+  static final List<Map<String, String>> testSshServers = [
     {'name': 'Rebex SSH Demo', 'host': 'test.rebex.net', 'user': 'demo', 'password': 'demo', 'info': 'Demo SSH server from Rebex'},
     {'name': 'SDF Public Access', 'host': 'sdf.org', 'user': 'new', 'password': '(create account)', 'info': 'Public Unix server'},
   ];
@@ -43,7 +42,7 @@ class SSHProxyService {
     
     // Option 1: Use dedicated web SSH clients
     terminal.write('1. Use a web-based SSH client:\r\n');
-    for (var service in WEB_SSH_SERVICES) {
+    for (var service in webSshServices) {
       terminal.write('   - ${service['name']}: ${service['url']}\r\n');
     }
     terminal.write('\r\n');
@@ -55,7 +54,7 @@ class SSHProxyService {
     
     // Option 3: Try hosted SSH servers (for testing)
     terminal.write('3. Test with public SSH servers:\r\n');
-    for (var server in TEST_SSH_SERVERS) {
+    for (var server in testSshServers) {
       terminal.write('   - ${server['name']}: ssh ${server['user']}@${server['host']} (Password: ${server['password']})\r\n');
     }
     
@@ -72,7 +71,7 @@ class SSHProxyService {
     if (channel != null) {
       try {
         debugPrint('SSH_PROXY: Sending command: "$command"');
-        channel.sink.add(command + '\n');
+        channel.sink.add('$command\n');
       } catch (e) {
         debugPrint('SSH_PROXY: Error sending command: $e');
       }
