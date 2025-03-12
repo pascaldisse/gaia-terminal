@@ -8,6 +8,7 @@ import 'package:dartssh2/dartssh2.dart';
 
 // Import local services
 import 'ssh_proxy_service.dart';
+import 'sftp_service.dart';
 
 /// Split direction for terminal panes
 enum SplitDirection {
